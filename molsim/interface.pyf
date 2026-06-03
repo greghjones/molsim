@@ -1,0 +1,23 @@
+python module fortran_accel
+    interface
+        subroutine make_gauss(centers, taus, l_idxs, u_idxs, freq_profile, tau_profile, npeaks, profilelength, dV, ckm)
+            integer*8, intent(in) :: npeaks, profilelength
+            double precision, intent(in) :: dV, ckm
+            integer*8, intent(in) :: l_idxs(npeaks), u_idxs(npeaks)
+            double precision, intent(in) :: centers(npeaks), taus(npeaks), freq_profile(profilelength)
+            double precision, intent(out) :: tau_profile(profilelength)
+        end subroutine make_gauss
+        subroutine calc_tb(freq_profile, tau_profile, tbg_profile, tex, h, k, tb_profile, profilelength, texlength)
+            integer*8, intent(in) :: profilelength, texlength
+            double precision, intent(in) :: h, k
+            double precision, intent(in) :: freq_profile(profilelength), tau_profile(profilelength), tbg_profile(profilelength), tex(texlength)
+            double precision, intent(out) :: tb_profile(profilelength)
+        end subroutine calc_Tb
+        subroutine calc_tau(aij, gup, eup, frequencies, columndensity, tex, dV, q, h, k, cm, tau, ntransitions)
+            implicit none
+            integer*8, intent(in) :: ntransitions
+            double precision, intent(in) :: columndensity, tex, dV, q, h, k, cm
+            double precision, intent(in) :: aij(ntransitions), gup(ntransitions), eup(ntransitions), frequencies(ntransitions)
+            double precision, intent(out) :: tau(ntransitions)
+        end subroutine calc_tau
+end python module fortran_accel

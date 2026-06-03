@@ -5,6 +5,9 @@ from molsim.constants import ccm, cm, ckm, h, k, kcm
 from molsim.stats import get_rms
 from molsim.utils import _trim_arr, find_nearest, find_nearest_vectorized, _make_gauss, _apply_vlsr, _apply_beam, _make_fmted_qnstr
 from molsim.file_io import _read_txt, _read_xy
+from molsim.fortran_accel import make_gauss as make_gaussians_accel
+from molsim.fortran_accel import calc_tb as calc_Tb_accel
+from molsim.fortran_accel import calc_tau as calc_tau_accel
 from scipy.interpolate import interp1d
 from astropy import units
 from astropy.coordinates import SkyCoord, EarthLocation
@@ -312,6 +315,8 @@ class Catalog(object):
 								notes = self.notes,
 								refs = self.refs
 							)
+		else:
+			raise NotImplementedError("Export to format other than molsim not yet supported.")	
 		
 		return	
 	
@@ -1231,15 +1236,21 @@ class Simulation(object):
 		return	
 		
 	def _calc_tau(self):
-		self.spectrum.tau = (np.log(2)**0.5 * (self.aij * cm**3 * (self.source.column * 100**2) *
-								self.gup * (np.exp(-self.eup/self.source.Tex)) *
-							 	(np.exp(h*self.spectrum.frequency*1E6/(k*self.source.Tex))-1)
-							 )
-							/
-							(4*np.pi**1.5*(self.spectrum.frequency*1E6)**3 *
-								self.source.dV*1000 * self.mol.q(self.source.Tex)
-							)
-					)
+
+		# calc_tau_accel implements the following in Fortran
+		# self.spectrum.tau = (np.log(2)**0.5 * (self.aij * cm**3 * (self.source.column * 100**2) *
+		# 						self.gup * (np.exp(-self.eup/self.source.Tex)) *
+		# 					 	(np.exp(h*self.spectrum.frequency*1E6/(k*self.source.Tex))-1)
+		# 					 )
+		# 					/
+		# 					(4*np.pi**1.5*(self.spectrum.frequency*1E6)**3 *
+		# 						self.source.dV*1000 * self.mol.q(self.source.Tex)
+		# 					)
+		# 			)
+		self.spectrum.tau = calc_tau_accel(self.aij, self.gup, self.eup, self.spectrum.frequency,
+				 	   					   self.source.column, self.source.Tex, self.source.dV, self.mol.q(self.source.Tex),
+					   					   h, k, cm)
+
 		#Set the tau (intensity) of a transition to 0 if it exceeds the tau_threshold. 
 		#Implemented to exclude optically thick transitions from least-squares fitting routine
 		if self.tau_threshold is not None:
@@ -1273,15 +1284,15 @@ class Simulation(object):
 		Edit by Kelvin: this is now turned into a static method that requires Tex as
 		an argument. This is so that the function can be njit'd.
 		'''
-		
+
 		J_T = ((h*freq*10**6/k)*
-			  (np.exp(((h*freq*10**6)/
-			  (k*Tex))) -1)**-1
-			  )
+			(np.exp(((h*freq*10**6)/
+			(k*Tex))) -1)**-1
+			)
 		J_Tbg = ((h*freq*10**6/k)*
-			  (np.exp(((h*freq*10**6)/
-			  (k*Tbg))) -1)**-1
-			  )			  
+			(np.exp(((h*freq*10**6)/
+			(k*Tbg))) -1)**-1
+			)			  
 		return (J_T - J_Tbg)*(1 - np.exp(-tau))
 		
 	def _beam_correct(self):
@@ -1301,45 +1312,56 @@ class Simulation(object):
 		if self.line_profile is None:
 			return
 		if self.line_profile.lower() in ['gaussian','gauss']:
-			lls_raw = self.spectrum.frequency - self.sim_width*self.source.dV*self.spectrum.frequency/ckm
-			uls_raw = self.spectrum.frequency + self.sim_width*self.source.dV*self.spectrum.frequency/ckm
-			ll_trim = [lls_raw[0]]
-			ul_trim = [uls_raw[0]]
-			for ll,ul in zip(lls_raw[1:],uls_raw[1:]):
-				if ll < ul_trim[-1]:
-					ul_trim[-1] = ul
-				else:
-					ll_trim.append(ll)
-					ul_trim.append(ul)
-			ll_trim = np.array(ll_trim)
-			ul_trim = np.array(ul_trim)
 			# perform the line profile calculation on the same grid as
 			# the observational data
 			if self.use_obs:
-				freq_arr = self.observation.spectrum.frequency
+				self.spectrum.freq_profile = self.observation.spectrum.frequency
 				if not hasattr(self, "_cache"):
 					self._cache = {"l_idxs": None, "u_idxs": None}
 			else:
-				freq_arr = np.concatenate([np.arange(ll,ul,self.res) for ll,ul in zip(ll_trim,ul_trim)])
-			tau_arr = np.zeros_like(freq_arr)
+				windowfactor = self.sim_width*self.source.dV/ckm
+				lls_raw = self.spectrum.frequency*(1.0-windowfactor)
+				uls_raw = self.spectrum.frequency*(1.0+windowfactor)
+				ll_trim = [lls_raw[0]]
+				ul_trim = [uls_raw[0]]
+				for ll,ul in zip(lls_raw[1:],uls_raw[1:]):
+					if ll < ul_trim[-1]:
+						ul_trim[-1] = ul
+					else:
+						ll_trim.append(ll)
+						ul_trim.append(ul)
+				ll_trim = np.array(ll_trim)
+				ul_trim = np.array(ul_trim)
+				self.spectrum.freq_profile = np.concatenate([np.arange(ll,ul,self.res) for ll,ul in zip(ll_trim,ul_trim)])
 			if self.use_obs and self._cache:
 				l_idxs = self._cache.get("l_idxs")
 				if l_idxs is None:
-					l_idxs = find_nearest_vectorized(freq_arr,lls_raw)
-					u_idxs = find_nearest_vectorized(freq_arr,uls_raw)
+					windowfactor = self.sim_width*self.source.dV/ckm
+					lls_raw = self.spectrum.frequency*(1.0-windowfactor)
+					uls_raw = self.spectrum.frequency*(1.0+windowfactor)
+					l_idxs = find_nearest_vectorized(self.spectrum.freq_profile,lls_raw)
+					u_idxs = find_nearest_vectorized(self.spectrum.freq_profile,uls_raw)
 					self._cache["l_idxs"] = l_idxs
 					self._cache["u_idxs"] = u_idxs
 				u_idxs = self._cache.get("u_idxs")
 			else:
-				l_idxs = find_nearest_vectorized(freq_arr,lls_raw)
-				u_idxs = find_nearest_vectorized(freq_arr,uls_raw)
-			for x,y,ll,ul in zip(self.spectrum.frequency,self.spectrum.tau,l_idxs,u_idxs):
-				tau_arr[ll:ul] += _make_gauss(x,y,freq_arr[ll:ul],self.source.dV,ckm)
-			self.spectrum.tau_profile = tau_arr
-			self.spectrum.freq_profile = freq_arr
-			self.spectrum.Tbg_profile = self.source.continuum.Tbg(freq_arr)
-			self.spectrum.int_profile = self._calc_Tb(freq_arr,tau_arr,self.spectrum.Tbg_profile,self.source.Tex)
+				windowfactor = self.sim_width*self.source.dV/ckm
+				lls_raw = self.spectrum.frequency*(1.0-windowfactor)
+				uls_raw = self.spectrum.frequency*(1.0+windowfactor)
+				l_idxs = find_nearest_vectorized(self.spectrum.freq_profile,lls_raw)
+				u_idxs = find_nearest_vectorized(self.spectrum.freq_profile,uls_raw)
+			self.spectrum.Tbg_profile = self.source.continuum.Tbg(self.spectrum.freq_profile)
+			# Python equivalent: _make_gaussians
+			self.spectrum.tau_profile = make_gaussians_accel(self.spectrum.frequency, self.spectrum.tau, l_idxs, u_idxs, self.spectrum.freq_profile, self.source.dV, ckm)
+			# Python equivalent: _calc_Tb
+			self.spectrum.int_profile = calc_Tb_accel(self.spectrum.freq_profile,self.spectrum.tau_profile,self.spectrum.Tbg_profile,self.source.Tex, h, k)
 			return
+		
+	def _make_gaussians(self, centers, taus, l_idxs, u_idxs, freq_profile, dV, ckm):
+		result = np.zeros_like(freq_profile)
+		for x,y,ll,ul in zip(centers,taus,l_idxs,u_idxs):
+			result[ll:ul] += _make_gauss(x,y,freq_profile[ll:ul],dV,ckm)
+		return result
 			
 	def get_beam(self,freq):
 		return 	206265 * 1.22 * ((freq*u.MHz).to(u.m, equivalencies=u.spectral()).value) / self.observation.observatory.dish		
@@ -1549,7 +1571,7 @@ class Simulation(object):
 			
 		print_table = []
 		if vlsr is None:
-			headers = ['Frequency', 'Intensity', 'Quantum Numbers', 'E$_{\mathrm{u}}$ (K)', 'g$_{\mathrm{u}}$', 'g$_{\mathrm{l}}$', 'log(A$_{\mathrm{ij}}$)', r'S$_{\mathrm{ij}}\mathrm{\mu} ^2$']
+			headers = ['Frequency', 'Intensity', 'Quantum Numbers', r'E$_{\mathrm{u}}$ (K)', r'g$_{\mathrm{u}}$', r'g$_{\mathrm{l}}$', r'log(A$_{\mathrm{ij}}$)', r'S$_{\mathrm{ij}}\mathrm{\mu} ^2$']
 			if threshold is not None or eup_threshold is not None:
 				for a,b,c,d,e,f,g,h in zip(print_freqs[mask], print_ints[mask], print_qns[mask], print_eups[mask], print_gus[mask], print_gls[mask], print_aijs[mask], print_sijmus[mask]):
 					print_table.append([f'{a:.4f}',f'{b:.4f}',f'{c}',f'{d:.2f}',e,f,f'{g:.3f}',f'{h:.3f}'])
@@ -1584,7 +1606,7 @@ class Simulation(object):
 					))
 		
 		if vlsr is not None:
-			headers = ['Frequency', 'Sky Frequency', 'Intensity', 'Quantum Numbers', 'E$_{\mathrm{u}}$ (K)', 'g$_{\mathrm{u}}$', 'g$_{\mathrm{l}}$', 'log(A$_{\mathrm{ij}}$)', r'S$_{\mathrm{ij}}\mathrm{\mu} ^2$']
+			headers = ['Frequency', 'Sky Frequency', 'Intensity', 'Quantum Numbers', r'E$_{\mathrm{u}}$ (K)', r'g$_{\mathrm{u}}$', r'g$_{\mathrm{l}}$', r'log(A$_{\mathrm{ij}}$)', r'S$_{\mathrm{ij}}\mathrm{\mu} ^2$']
 			if threshold is not None or eup_threshold is not None:
 				for a,a2,b,c,d,e,f,g,h in zip(print_freqs[mask], print_skyfreqs[mask], print_ints[mask], print_qns[mask], print_eups[mask], print_gus[mask], print_gls[mask], print_aijs[mask], print_sijmus[mask]):
 					print_table.append([f'{a:.4f}',f'{a2:.4f}',f'{b:.4f}',f'{c}',f'{d:.2f}',e,f,f'{g:.3f}',f'{h:.3f}'])

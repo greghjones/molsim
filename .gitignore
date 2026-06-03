@@ -6,3 +6,4 @@ working/
 .DS_Store
 __pycache__
 .vscode
+*.so
