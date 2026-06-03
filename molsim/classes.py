@@ -1339,8 +1339,8 @@ class Simulation(object):
 					windowfactor = self.sim_width*self.source.dV/ckm
 					lls_raw = self.spectrum.frequency*(1.0-windowfactor)
 					uls_raw = self.spectrum.frequency*(1.0+windowfactor)
-					l_idxs = find_nearest_vectorized(self.spectrum.freq_profile,lls_raw)
-					u_idxs = find_nearest_vectorized(self.spectrum.freq_profile,uls_raw)
+					l_idxs = np.array(find_nearest_vectorized(self.spectrum.freq_profile,lls_raw), dtype=int)
+					u_idxs = np.array(find_nearest_vectorized(self.spectrum.freq_profile,uls_raw), dtype=int)
 					self._cache["l_idxs"] = l_idxs
 					self._cache["u_idxs"] = u_idxs
 				u_idxs = self._cache.get("u_idxs")
