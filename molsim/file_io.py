@@ -1,15 +1,12 @@
 import numpy as np
 
-def _read_txt(filein):
+def _read_txt(filein: str):
 	'''Reads in any txt file and returns a line by line array'''
 	
 	return_arr = []
 	
 	with open(filein, 'r') as input:
-		for line in input:
-			return_arr.append(line)
-
-	return return_arr
+		return input.readlines()
 
 
 def _read_xy(filein):
