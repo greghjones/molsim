@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.typing import NDArray
 from numba import njit
 import math
 from molsim.constants import ccm, cm, ckm, h, k, kcm 
@@ -57,14 +58,14 @@ class Catalog(object):
 									#dictionary
 					catid = None, #a unique catalog id
 					molecule = None, #molecule name
-					frequency = None, #frequencies [MHz]
+					frequency : NDArray[np.float64] = None, #frequencies [MHz]
 					freq_err = None, #errors on frequencies [MHz]
 					measured = None, #set to True if the line is known in the laboratory, 
 									 #False otherwise
-					logint = None, #logarithmic intensities [log10(nm^2 MHz)]
-					sijmu = None, #linestrength times the dipole moment squared [Debye^2]
-					sij = None, #intrinsic linestrength (unitless)
-					aij = None, #einstein A-coefficients [s^-1]
+					logint : NDArray[np.float64] = None, #logarithmic intensities [log10(nm^2 MHz)]
+					sijmu : NDArray[np.float64] = None, #linestrength times the dipole moment squared [Debye^2]
+					sij : NDArray[np.float64] = None, #intrinsic linestrength (unitless)
+					aij : NDArray[np.float64] = None, #einstein A-coefficients [s^-1]
 					man_int = None, #manually entered intensities, not to be used by 
 									#calculations
 					types = None, #transition types
@@ -252,7 +253,7 @@ class Catalog(object):
 		
 		return
 		
-	def _set_sijmu_aij(self,Q):
+	def _set_sijmu_aij(self, Q: PartitionFunction):
 		eq1 = 2.40251E4 * 10**(self.logint) * Q.qrot(300) * self.frequency **-1
 		eq2 = np.exp(-self.elow/300) - np.exp(-self.eup/300)
 		self.sijmu = eq1/eq2
@@ -410,17 +411,17 @@ class Transition(object):
 					qn8low = None, #lower state quantum number 8
 					qnlow_str = None, #string of lower states mashed together
 					qnstr_formatted = None, #formatted quantum number string	
-					nqns = None, #number of quantum numbers
+					nqns : int = None, #number of quantum numbers
 					id = None, #unique ID for this transition
-					sijmu = None, #sijmu2 [debye^2]
-					sij = None, #sij [unitless]
-					aij = None, #aij [s^-1]
+					sijmu : float = None, #sijmu2 [debye^2]
+					sij : float = None, #sij [unitless]
+					aij : float = None, #aij [s^-1]
 					logint = None, #logarithmic intensity [log10(nm^2 MHz)]
 					type = None, #transition type
 					upper_level = None, #Level object of upper level
 					lower_level = None, #Level object of lower level
-					mol = None, #the molecule object
-					catalog = None, #the catalog object
+					mol : Molecule = None, #the molecule object
+					catalog : Catalog = None, #the catalog object
 				):
 				
 		self.frequency = frequency
@@ -475,21 +476,21 @@ class Molecule(object):
 	def __init__(
 					self,
 					id = None, #unique ID for this molecule
-					name = None, #common name (str)
-					formula = None, #formula (str)
+					name : str = None, #common name (str)
+					formula : str = None, #formula (str)
 					elements = None, #a dictionary containing the elemental composition
-					mass = None, #molecular mass [amu]
-					A = None, #A rotational constant [MHz]
-					B = None, #B rotational constant [MHz]
-					C = None, #C rotational constant [MHz]
-					muA = None, #A component of the dipole moment [Debye]
-					muB = None, #B component of the dipole moment [Debye]
-					muC = None, #C component of the dipole moment [Debye]
+					mass : float = None, #molecular mass [amu]
+					A : float = None, #A rotational constant [MHz]
+					B : float = None, #B rotational constant [MHz]
+					C : float = None, #C rotational constant [MHz]
+					muA : float = None, #A component of the dipole moment [Debye]
+					muB : float = None, #B component of the dipole moment [Debye]
+					muC : float = None, #C component of the dipole moment [Debye]
 					mu = None, #total dipole moment
-					qpart = None, #partition function object
-					catalog = None, #catalog object for this molecule
-					trans = None, #list of transition objects for this molecule
-					levels = None, #list of energy level objects for this molecule
+					qpart : PartitionFunction = None, #partition function object
+					catalog : Catalog = None, #catalog object for this molecule
+					trans : list[Transition] = None, #list of transition objects for this molecule
+					levels : list[Level] = None, #list of energy level objects for this molecule
 				):
 				
 		self.id = id
@@ -643,18 +644,18 @@ class PartitionFunction(object):
 	
 	def __init__(
 					self,
-					qpart_file = None, #a file that holds this info externally
-					form = None, #the functional form of the partition function
+					qpart_file : str = None, #a file that holds this info externally
+					form : str = None, #the functional form of the partition function ('poly','polynomial','power','pow','rotcons')
 					params = None, #the parameters for that functional form
-					temps = None, #a temperature array if we're going to interpolate [K]
-					vals = None, #a values array if we're going to interpolate
-					mol = None, #a molecule to pull gs and energies from
-					gs = None, #an array of degeneracies to calculate from
-					energies = None, #an array of energies to calculate from [K]
+					temps : NDArray[np.float64] = None, #a temperature array if we're going to interpolate [K]
+					vals : NDArray[np.float64] = None, #a values array if we're going to interpolate
+					mol : Molecule = None, #a molecule to pull gs and energies from
+					gs : NDArray[np.float64] = None, #an array of degeneracies to calculate from
+					energies : NDArray[np.float64] = None, #an array of energies to calculate from [K]
 					sigma = 1, #a sigma value for state counting
-					vib_states = None, #an array of vibrational states to calculate from
+					vib_states : NDArray[np.float64] = None, #an array of vibrational states to calculate from
 										#these are in [cm-1]
-					vib_is_K = False, #set to true if your vibstates are in Kelvin
+					vib_is_K : bool = False, #set to true if your vibstates are in Kelvin
 					notes = None, #a way to add notes
 				):
 		
@@ -787,7 +788,7 @@ class PartitionFunction(object):
 		else:
 			return True
 		
-	def qrot(self,T):
+	def qrot(self,T) -> float | NDArray[np.float64]: 
 	
 		'''
 		Calculate and return the rotational partition function at temperature T
@@ -845,7 +846,7 @@ class PartitionFunction(object):
 				energies = self.energies
 			return (1/self.sigma)*np.sum(gs*np.exp(-energies/T))
 	
-	def qvib(self,T):
+	def qvib(self,T) -> float | NDArray[np.float64]:
 		'''
 		Calculate and return the vibrational partition function at temperature T
 		'''		 
@@ -876,16 +877,16 @@ class Spectrum(object):
 	def __init__(
 					self,
 					freq0 = None, #unshifted frequency data
-					frequency = None, #frequency data
+					frequency : NDArray[np.float64] = None, #frequency data
 					Tb = None, #intensity in units of [K]
 					Iv = None, #intensity in units of [Jy/beam] or [Jy/sr]
 					Tbg = None, #intensity of background in [K]
 					Ibg = None, #intensity of background in [Jy/beam] or [Jy/sr]
-					tau = None, #optical depths
-					tau_profile = None, #tau with line profile applied
-					freq_profile = None, #frequency of line profile data
-					int_profile = None, #intensity of line profile data
-					Tbg_profile = None, #background with line profile
+					tau : NDArray[np.float64] = None, #optical depths
+					tau_profile : NDArray[np.float64] = None, #tau with line profile applied
+					freq_profile : NDArray[np.float64] = None, #frequency of line profile data
+					int_profile : NDArray[np.float64] = None, #intensity of line profile data
+					Tbg_profile : NDArray[np.float64] = None, #background with line profile
 					velocity = None, #velocity space Data
 					int_sim = None, #intensity of a simulation
 					freq_sim = None, #frequency of a simulation
@@ -964,9 +965,9 @@ class Continuum(object):
 	
 	def __init__(
 					self,
-					cont_file = None, #a cont file to read parameters from
-					type = 'thermal', #type of continuum to calculate
-					params = 2.7, #necessary parameters
+					cont_file : str = None, #a cont file to read parameters from
+					type : str = 'thermal', #type of continuum to calculate
+					params : float | list[list[float]] = 2.7, #necessary parameters
 					freqs = None, #frequencies [MHz] if interpolating between points
 					temps = None, #values [K] if interpolating T between points
 					fluxes = None, #fluxes [Jy/beam] if interpolating Jy between points
@@ -1037,15 +1038,15 @@ class Source(object):
 	
 	def __init__(
 					self,
-					name = None, # name
-					velocity = 0., #lsr velocity [km/s]
-					size = 1E20, #diameter [arcsec]
-					solid_angle = None, #solid angle on the sky; pi*(size/2)^2 [arcsec^2]
-					continuum = None, #a continuum object
-					column = 1.E13, #column density [cm-2]
-					Tex = 300., #float or numpy array of excitation temperatures [K]
-					Tkin = None, #kinetic temperature of source [K]
-					dV = 3., #fwhm [km/s]
+					name : str = None, # name
+					velocity : float = 0., #lsr velocity [km/s]
+					size : float = 1E20, #diameter [arcsec]
+					solid_angle : float = None, #solid angle on the sky; pi*(size/2)^2 [arcsec^2]
+					continuum : Continuum = None, #a continuum object
+					column : float = 1.E13, #column density [cm-2]
+					Tex : float | NDArray[np.float64] = 300., #float or numpy array of excitation temperatures [K]
+					Tkin : float = None, #kinetic temperature of source [K]
+					dV : float = 3., #fwhm [km/s]
 					id = None, #unique id
 					notes = None, #notes
 				):
@@ -1072,17 +1073,17 @@ class Observatory(object):
 	
 	def __init__(
 					self,
-					name = None, #telescope name, str
+					name : str = None, #telescope name
 					id = None, #unique ID
-					sd = True, #is it a single dish?
-					array = False, #is it an array?
-					dish = 100., #dish size in meters if single dish
+					sd : bool = True, #is it a single dish?
+					array : bool = False, #is it an array?
+					dish : float = 100., #dish size in meters if single dish
 					synth_beam = [1.,1.], #synthesized beam bmaj,bmin in arcseconds
 					loc = None, #astropy EarthLocation object 
-					eta = None, #numpy array of aperture efficiency
-					eta_type = 'constant', #how to calculate eta
+					eta: NDArray[np.float64] = None, #numpy array of aperture efficiency
+					eta_type : str = 'constant', #how to calculate eta
 					eta_params = [1.], #parameters for calculating eta
-					atmo = None, #numpy array of atmospheric transmission in percent
+					atmo : NDArray[np.float64] = None, #numpy array of atmospheric transmission in percent
 				):
 				
 		self.name = name
@@ -1136,22 +1137,22 @@ class Simulation(object):
 	
 	def __init__(
 					self,
-					spectrum = None, #Spectrum object associated with this simulation
-					observation = None, #Observation object associated with this simulation
-					source = None, #Source object associated with this simulation
+					spectrum : Spectrum = None, #Spectrum object associated with this simulation
+					observation : Observation = None, #Observation object associated with this simulation
+					source : Source = None, #Source object associated with this simulation
 					ll = [float('-inf')], #lower limits
 					ul = [float('-inf')], #lower limits
-					line_profile = 'Gaussian', #simulate a line profile or not
+					line_profile : str = 'Gaussian', #simulate a line profile or not
 					sim_width = 10, #fwhms to simulate +/- line center
 					res = 10., #resolution if simulating line profiles [kHz]
-					mol = None, #Molecule object associated with this simulation
-					units = 'K', #units for the simulation; accepts 'K', 'mK', 'Jy/beam'
+					mol : Molecule = None, #Molecule object associated with this simulation
+					units : str = 'K', #units for the simulation; accepts 'K', 'mK', 'Jy/beam'
 					notes = None, #notes
-                    use_obs = False, # flag for line profile simulation to be done with observations
-                    add_noise = False, #flag for whether to add noise 
+                    use_obs : bool = False, # flag for line profile simulation to be done with observations
+                    add_noise : bool = False, #flag for whether to add noise 
                     noise = None, # Noise level in native units of the simulation to add
-                    tau_threshold = None, #Set upper threshold at which to ignore lines for fitting
-                    eup_threshold = None #Set lower eup threshold [K] at which to exclude transitions
+                    tau_threshold : float = None, #Set upper threshold at which to ignore lines for fitting
+                    eup_threshold : float = None #Set lower eup threshold [K] at which to exclude transitions
 				):
 				
 		self.spectrum = spectrum
@@ -1217,9 +1218,9 @@ class Simulation(object):
 		mask = _trim_arr(self.mol.catalog.frequency - self.source.velocity*self.mol.catalog.frequency/ckm,self.ll,self.ul,return_mask=True)
 		self.spectrum.frequency = self.mol.catalog.frequency[mask]
 		self.spectrum.freq0 = np.copy(self.spectrum.frequency)
-		self.aij = self.mol.catalog.aij[mask]
-		self.gup = self.mol.catalog.gup[mask]
-		self.eup = self.mol.catalog.eup[mask]
+		self.aij : NDArray[np.float64] = self.mol.catalog.aij[mask]
+		self.gup : NDArray[np.float64] = self.mol.catalog.gup[mask]
+		self.eup : NDArray[np.float64] = self.mol.catalog.eup[mask]
 		return
 		
 	def _check_coverage(self):
