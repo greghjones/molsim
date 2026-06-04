@@ -706,9 +706,9 @@ class PartitionFunction(object):
 					if '#' not in line:
 						t_arr.append(float(line.split()[0]))
 						q_arr.append(float(line.split()[1].strip()))
-				self.temps = np.array(t_arr)
-				self.vals = np.array(q_arr)
-				self.interpfunc = interp1d(self.temps,self.vals,fill_value='extrapolate')
+				tsort = np.argsort(t_arr)
+				self.temps = np.array(t_arr)[tsort]
+				self.vals = np.array(q_arr)[tsort]
 			if self.form in ['pow','power']:
 				self.params = [float(qpart_raw[form_line].split(',')[0].strip()),float(qpart_raw[form_line].split(',')[1].strip()),float(qpart_raw[form_line].split(',')[2].strip())]
 			if self.form in ['poly', 'polynomial']:
@@ -833,7 +833,7 @@ class PartitionFunction(object):
 
 		#if the user provided arrays for interpolation
 		if self.flag == 'interpolation':
-			 return self.interpfunc(T).tolist()
+			return np.interp(T, self.temps, self.vals).tolist()
 			 
 		#if the user provided a catalog or gs and energies
 		if self.flag == 'counting':
