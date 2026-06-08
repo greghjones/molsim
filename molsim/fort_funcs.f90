@@ -54,11 +54,22 @@ subroutine calc_tb(freq_profile, tau_profile, tbg_profile, tex, h, k, tb_profile
 end subroutine calc_tb
 
 subroutine calc_tau(aij, gup, eup, frequencies, columndensity, tex, dV, q, h, k, cm, tau, ntransitions)
+    use, intrinsic :: iso_c_binding, only: c_double
     implicit none
     integer*8, intent(in) :: ntransitions
     double precision, intent(in) :: columndensity, tex, dV, q, h, k, cm
     double precision, intent(in) :: aij(ntransitions), gup(ntransitions), eup(ntransitions), frequencies(ntransitions)
     double precision, intent(out) :: tau(ntransitions)
+
+    INTERFACE
+        function expm1(x) bind(C, NAME="Sleef_expm1_u10")
+            import :: c_double
+            real(c_double), value :: x
+            real(c_double) :: expm1
+        END FUNCTION expm1
+    END INTERFACE
+
+    integer*8 i
 
     double precision, parameter :: pi = 3.141592653589793238462643383279502884197d0
 
@@ -70,7 +81,13 @@ subroutine calc_tau(aij, gup, eup, frequencies, columndensity, tex, dV, q, h, k,
     prefactor = log(2.0d0)**0.5d0 * cm*cm*cm * (columndensity * 100.0d0*100.0d0) / (4*pi**1.5d0 * 1.0d18 * dV*1000.0d0 * q)
 
     exp1 = exp(texinv*eup)
-    exp2 = exp(boltzmannscale*frequencies) - 1.0d0
+    ! exp2 = exp(boltzmannscale*frequencies) - 1.0d0
+
+    exp2 = boltzmannscale*frequencies
+    do i=1,ntransitions
+        exp2(i) = expm1(exp2(i))
+    end do
+
     invfcubed = prefactor / (frequencies*frequencies*frequencies)
 
     tau = aij*gup*exp1*exp2*invfcubed
