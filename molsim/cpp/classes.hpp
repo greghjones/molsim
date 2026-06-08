@@ -1,23 +1,24 @@
-#include <vector>
 #include <string>
 #include <optional>
+
+#include "util.hpp"
 
 class Catalog
 {
     public:
         uint64_t catid;
         std::string molecule;
-        std::vector<double> frequency;
-        std::vector<double> freq_err;
+        AlignedVector<double> frequency;
+        AlignedVector<double> freq_err;
+        AlignedVector<double> logint;
+        AlignedVector<double> sijmu;
+        AlignedVector<double> sij;
+        AlignedVector<double> aij;
+        AlignedVector<double> elow;
+        AlignedVector<double> eup;
+        AlignedVector<int> glow;
+        AlignedVector<int> gup;
         bool measured;
-        std::vector<double> logint;
-        std::vector<double> sijmu;
-        std::vector<double> sij;
-        std::vector<double> aij;
-        std::vector<double> elow;
-        std::vector<double> eup;
-        std::vector<int> glow;
-        std::vector<int> gup;
 };
 
 class Molecule
@@ -31,17 +32,17 @@ class Molecule
 class Spectrum
 {
     public:
-        std::vector<double> freq0;  //unshifted frequency data
-        std::vector<double> frequency; //frequency data
-        std::vector<double> Tb; //intensity in units of [K]
-        std::vector<double> Iv; //intensity in units of [Jy/beam] or [Jy/sr]
-        std::vector<double> Tbg; //intensity of background in [K]
-        std::vector<double> Ibg; //intensity of background in [Jy/beam] or [Jy/sr]
-        std::vector<double> tau; //optical depths
-        std::vector<double> tau_profile; //tau with line profile applied
-        std::vector<double> freq_profile; //frequency of line profile data
-        std::vector<double> int_profile; //intensity of line profile data
-        std::vector<double> Tbg_profile; //background with line profile
+        AlignedVector<double> freq0;  //unshifted frequency data
+        AlignedVector<double> frequency; //frequency data
+        AlignedVector<double> Tb; //intensity in units of [K]
+        AlignedVector<double> Iv; //intensity in units of [Jy/beam] or [Jy/sr]
+        AlignedVector<double> Tbg; //intensity of background in [K]
+        AlignedVector<double> Ibg; //intensity of background in [Jy/beam] or [Jy/sr]
+        AlignedVector<double> tau; //optical depths
+        AlignedVector<double> tau_profile; //tau with line profile applied
+        AlignedVector<double> freq_profile; //frequency of line profile data
+        AlignedVector<double> int_profile; //intensity of line profile data
+        AlignedVector<double> Tbg_profile; //background with line profile
         // velocity = None, //velocity space Data
         // int_sim = None, //intensity of a simulation
         // freq_sim = None, //frequency of a simulation
@@ -58,9 +59,9 @@ class Continuum
         std::string cont_file;
         enum type { thermal, interpolation, range };
         // params; may need adapting
-        std::vector<double> freqs;
-        std::vector<double> temps;
-        std::vector<double> fluxes;
+        AlignedVector<double> freqs;
+        AlignedVector<double> temps;
+        AlignedVector<double> fluxes;
         std::string notes;
 };
 
@@ -90,13 +91,13 @@ class Observatory
         double dish;
         std::pair<double, double> synth_beam;
         // loc;
-        std::vector<double> eta;
-        enum eta_type
+        AlignedVector<double> eta;
+        enum eta_type_t
         {
             constant
-        };
-        std::vector<double> eta_params;
-        std::vector<double> atmo;
+        } eta_type;
+        AlignedVector<double> eta_params;
+        AlignedVector<double> atmo;
 };
 
 class Observation
@@ -117,8 +118,8 @@ class Simulation
         Simulation(Spectrum spectrum = Spectrum(),
                    std::optional<Observation> observation = {},
                    Source source = Source(),
-                   std::vector<double> ll = std::vector<double>(),
-                   std::vector<double> ul = std::vector<double>(),
+                   AlignedVector<double> ll = AlignedVector<double>(),
+                   AlignedVector<double> ul = AlignedVector<double>(),
                    const std::string& line_profile = "gaussian",
                    double sim_width = 10.0,
                    double res = 10.0,
@@ -134,8 +135,8 @@ class Simulation
         Spectrum spectrum;
         std::optional<Observation> observation;
         Source source;
-        std::vector<double> ll;
-        std::vector<double> ul;
+        AlignedVector<double> ll;
+        AlignedVector<double> ul;
         enum line_profile_type
         {
             Gaussian
@@ -154,9 +155,9 @@ class Simulation
         double tau_threshold;
         double eup_threshold;
 
-        std::vector<double> aij;
-        std::vector<int> gup;
-        std::vector<double> eup;
+        AlignedVector<double> aij;
+        AlignedVector<int> gup;
+        AlignedVector<double> eup;
 
         void set_line_profile(std::string label);
         void set_units(std::string label);

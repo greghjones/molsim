@@ -8,7 +8,8 @@ from molsim.utils import _trim_arr, find_nearest, find_nearest_vectorized, _make
 from molsim.file_io import _read_txt, _read_xy
 from molsim.fortran_accel import make_gauss as make_gaussians_accel
 from molsim.fortran_accel import calc_tb as calc_Tb_accel
-from molsim.fortran_accel import calc_tau as calc_tau_accel
+from molsim.fortran_accel import calc_tau as calc_tau_fort
+#from molsim.cxx import calc_tau as calc_tau_accel
 from scipy.interpolate import interp1d
 from astropy import units
 from astropy.coordinates import SkyCoord, EarthLocation
@@ -1219,7 +1220,7 @@ class Simulation(object):
 		self.spectrum.frequency = self.mol.catalog.frequency[mask]
 		self.spectrum.freq0 = np.copy(self.spectrum.frequency)
 		self.aij : NDArray[np.float64] = self.mol.catalog.aij[mask]
-		self.gup : NDArray[np.float64] = self.mol.catalog.gup[mask]
+		self.gup : NDArray[np.int32] = self.mol.catalog.gup[mask]
 		self.eup : NDArray[np.float64] = self.mol.catalog.eup[mask]
 		return
 		
@@ -1248,7 +1249,9 @@ class Simulation(object):
 		# 						self.source.dV*1000 * self.mol.q(self.source.Tex)
 		# 					)
 		# 			)
-		self.spectrum.tau = calc_tau_accel(self.aij, self.gup, self.eup, self.spectrum.frequency,
+		# self.spectrum.tau = calc_tau_accel(self.aij, self.gup, self.eup, self.spectrum.frequency,
+		# 		 	   					   self.source.column, self.source.Tex, self.source.dV, self.mol.q(self.source.Tex))
+		self.spectrum.tau = calc_tau_fort(self.aij, self.gup, self.eup, self.spectrum.frequency,
 				 	   					   self.source.column, self.source.Tex, self.source.dV, self.mol.q(self.source.Tex),
 					   					   h, k, cm)
 

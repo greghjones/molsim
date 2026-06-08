@@ -2,18 +2,18 @@
 #include <pybind11/pybind11.h>
 
 #include <algorithm>
-#include <print>
 #include <vector>
-#include <cmath>
+#include <print>
 
 #include "sleef.h"
 
 #include "classes.hpp"
 #include "constants.hpp"
+#include "util.hpp"
 
 template <typename T, typename U, typename V>
 
-static void __attribute__((always_inline)) vmulv(const std::vector<T>& a, const std::vector<U>& b, std::vector<V>& c, bool increment)
+static void __attribute__((always_inline)) vmulv(const AlignedVector<T>& a, const AlignedVector<U>& b, AlignedVector<V>& c, bool increment)
 {
     assert(a.size() == b.size());
     assert(b.size() == c.size());
@@ -32,11 +32,11 @@ static void __attribute__((always_inline)) vmulv(const std::vector<T>& a, const 
     }
 }
 
-std::vector<double> _apply_vlsr(const std::vector<double>& infreq, double vlsr)
+AlignedVector<double> _apply_vlsr(const AlignedVector<double>& infreq, double vlsr)
 {
     const double scale = 1.0 - vlsr/ckm;
 
-    std::vector<double> outfreq(infreq.size());
+    AlignedVector<double> outfreq(infreq.size());
 
     // if we decide to have a BLAS dependency, replace with dscalv
     #pragma omp simd
@@ -47,14 +47,13 @@ std::vector<double> _apply_vlsr(const std::vector<double>& infreq, double vlsr)
 }
 
 template <typename T1, typename T2>
-inline std::vector<char> _trim_arr_mask(const std::vector<T1>& arr, const std::vector<T2>& lls, const std::vector<T2>& uls, const std::vector<T2>& key_arr)
+inline std::vector<char> _trim_arr_mask(const AlignedVector<T1>& arr, const AlignedVector<T2>& lls, const AlignedVector<T2>& uls, const AlignedVector<T2>& key_arr)
 {
     assert(lls.size() == uls.size());
     assert(arr.size() == key_arr.size());
 
     auto s = key_arr.size();
 
-    std::vector<T1> outarray;
     std::vector<char> mask(arr.size(), false);
 
     for (long i = 0; i < lls.size(); i++)
@@ -73,10 +72,10 @@ inline std::vector<char> _trim_arr_mask(const std::vector<T1>& arr, const std::v
 }
 
 template <typename T>
-std::vector<T> _apply_mask(const std::vector<T>& in, const std::vector<char>& mask)
+AlignedVector<T> _apply_mask(const AlignedVector<T>& in, const std::vector<char>& mask)
 {
     assert(mask.size() == in.size());
-    std::vector<T> out {};
+    AlignedVector<T> out {};
 
     for (long i = 0; i < mask.size(); i++)
         if (mask[i]) out.push_back(in[i]);
@@ -85,10 +84,10 @@ std::vector<T> _apply_mask(const std::vector<T>& in, const std::vector<char>& ma
 }
 
 Simulation::Simulation(Spectrum spectrum_,
-                       Observation observation_,
+                       std::optional<Observation> observation_,
                        Source source_,
-                       std::vector<double> ll_,
-                       std::vector<double> ul_,
+                       AlignedVector<double> ll_,
+                       AlignedVector<double> ul_,
                        const std::string& line_profile_,
                        double sim_width_,
                        double res_,
@@ -121,7 +120,7 @@ void Simulation::set_line_profile(std::string label)
     if (label == "gaussian") line_profile = Gaussian;
     else
     {
-        std::println("Invalid line_profile type in Simulation!");
+        std::print("Invalid line_profile type in Simulation!\n");
         // error macro
     }
 };
@@ -145,7 +144,7 @@ void Simulation::set_units(std::string label)
 void Simulation::set_arrays()
 {
     const double f = 1 - source.velocity/ckm;
-    std::vector<double> tmp(mol.catalog.frequency.size());
+    AlignedVector<double> tmp(mol.catalog.frequency.size());
     for (long i = 0; i < mol.catalog.frequency.size(); i++)
         tmp[i] = f*mol.catalog.frequency[i];
 
@@ -180,13 +179,13 @@ void Simulation::calc_tau()
 
 
     #if defined(__AVX2__)
-    const int vecsize = 4;
-    const size_t maxit = len/vecsize;
-    const size_t remainder = len - maxit*vecsize;
+    const long vecsize = 4;
+    const auto maxit = len/vecsize;
+    const auto remainder = len - maxit*vecsize;
     auto vtexinv    = _mm256_set1_pd(texinv);
     auto vboltzmann = _mm256_set1_pd(boltzmannscale);
     auto vprefactor = _mm256_set1_pd(prefactor);
-    for (size_t i = 0; i < maxit; i++)
+    for (long i = 0; i < maxit; i++)
     {
         auto exp1 = _mm256_set_pd(peup[3], peup[2], peup[1], peup[0]);
         exp1 = _mm256_mul_pd(vtexinv, exp1);
@@ -214,12 +213,12 @@ void Simulation::calc_tau()
     }
     #elif defined(__ARM_NEON)
     const int vecsize = 2;
-    const size_t maxit = len/vecsize;
-    const size_t remainder = len - maxit*vecsize;
+    const auto maxit = len/vecsize;
+    const auto remainder = len - maxit*vecsize;
     auto vtexinv = vdupq_n_f64(texinv);
     auto vboltzmann = vdupq_n_f64(boltzmannscale);
     auto vprefactor = vdupq_n_f64(prefactor);
-    for (size_t i = 0; i < maxit; i++)
+    for (long i = 0; i < maxit; i++)
     {
         auto exp1 = vld1q_f64(peup);
         exp1 = vmulq_f64(vtexinv, exp1);
@@ -247,9 +246,9 @@ void Simulation::calc_tau()
         ptau  += vecsize;
     }
     #else
-    const size_t remainder = len;
+    const auto remainder = len;
     #endif
-    for (size_t i = 0; i < remainder; i++)
+    for (long i = 0; i < remainder; i++)
     {
         double exp1 = Sleef_expd1_u10((*peup)*texinv);
         double f = (*pfreq);
@@ -277,13 +276,13 @@ void Simulation::calc_Tb()
           double* __restrict ptb = spectrum.Tb.data();
 
     #if defined(__AVX2__)
-    const int vecsize = 4;
-    const size_t maxit = len/vecsize;
-    const size_t remainder = len - maxit*vecsize;
+    const long vecsize = 4;
+    const auto maxit = len/vecsize;
+    const auto remainder = len - maxit*vecsize;
     const auto vtexinv = _mm256_set1_pd(texinv);
     const auto vscale = _mm256_set1_pd(scale);
     const auto vm1 = _mm256_set1_pd(-1.0);
-    for (size_t i = 0; i < maxit; i++)
+    for (long i = 0; i < maxit; i++)
     {
         auto freq = _mm256_set_pd(pfreq[3], pfreq[2], pfreq[1], pfreq[0]);
         auto tbg  = _mm256_set_pd(ptbg[3], ptbg[2], ptbg[1], ptbg[0]);
@@ -305,13 +304,13 @@ void Simulation::calc_Tb()
         ptb += vecsize;
     }
     #elif defined(__ARM_NEON)
-    const int vecsize = 2;
-    const size_t maxit = len/vecsize;
-    const size_t remainder = len - maxit*vecsize;
+    const long vecsize = 2;
+    const auto maxit = len/vecsize;
+    const auto remainder = len - maxit*vecsize;
     const auto vtexinv = vdupq_n_f64(texinv);
     const auto vscale = vdupq_n_f64(scale);
     const auto vm1 = vdupq_n_f64(-1.0);
-    for (size_t i = 0; i < maxit; i++)
+    for (long i = 0; i < maxit; i++)
     {
         auto freq = vld1q_f64(pfreq);
         auto tbg = vld1q_f64(ptbg);
@@ -333,9 +332,9 @@ void Simulation::calc_Tb()
         ptb += vecsize;
     }
     #else
-    const size_t remainder = len;
+    const long remainder = len;
     #endif
-    for (int i = 0; i < remainder; i++)
+    for (long i = 0; i < remainder; i++)
     {
         double temp1 = (*pfreq)*scale;
         double j_t = Sleef_expm1d1_u10(temp1*texinv);
