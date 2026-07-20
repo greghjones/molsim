@@ -1,6 +1,6 @@
 name: molsim
 channels:
-  - defaults
+  - conda-forge
 dependencies:
   - numpy
   - scipy
@@ -22,6 +22,7 @@ dependencies:
   - tabulate
   - loguru
   - h5netcdf
+  - ruamel.yaml
   - pip:
     - emcee
     - lmfit
