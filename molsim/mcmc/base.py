@@ -291,17 +291,19 @@ class EmceeHelper(object):
         To extract a number of burn-ins, you need to index using `xarray`
         syntax. In this case, it'll look like:
         
-        ```helper.posterior.sel(draw=slice(3000,None))```
+        ```helper.posterior.isel(draw=slice(3000,None))```
         
-        To get draws 3000 to the end. Unfortunately, -1000 does not appear
-        to work for this syntax.
+        To get draws 3000 to the end. Likewise, to get the last 1000 draws,
+        use:
+
+        ```helper.posterior.isel(draw=slice(-1000,None))```
 
         Returns
         -------
         [type]
             [description]
         """
-        return arviz.convert_to_inference_data(self.chain)
+        return arviz.from_emcee(self.sampler)
 
     def _boiler_plate_logging(self):
         logger.info("----------------------------------------------------------")
@@ -430,8 +432,7 @@ class EmceeHelper(object):
         logger.info(report)
 
     def save_posterior(self, filename: str) -> None:
-        posterior = self.posterior
-        arviz.to_netcdf(posterior, filename)
+        self.posterior.posterior.to_netcdf(filename)
         logger.info(f"Saved posterior samples to {filename}.")
 
     @classmethod
@@ -440,15 +441,12 @@ class EmceeHelper(object):
         samples = arviz.from_netcdf(netcdf_path)
         # if we're restarting sampling, take the last position
         if restart:
-            last = samples.posterior.isel(draw=-1).mean(dim=["chain"]).to_array()
-            initial = np.array(last)[0]
+            initial = samples.isel(draw=-1).mean(dim=["chain"]).dataset.to_dataarray().to_numpy()
         # generate the initial values from the mean of the posterior
         else:
-            initial = np.array(
-                samples.posterior.mean(dim=["chain", "draw"]).to_array()
-            )[0]
+            initial = samples.mean(dim=["chain", "draw"]).dataset.to_dataarray().to_numpy()
         helper_obj = cls(initial)
-        helper_obj.chain = np.array(samples.posterior.to_array()).squeeze()
+        helper_obj.chain = samples.dataset.to_dataarray().to_numpy().squeeze()
         return helper_obj
 
     @staticmethod
@@ -476,7 +474,7 @@ class EmceeHelper(object):
         np.ndarray
             [description]
         """
-        return self.posterior.posterior.mean(dim=["chain", "draw"]).to_array()[0].values
+        return self.posterior.posterior.mean(dim=["chain", "draw"]).dataset.to_dataarray().to_numpy()
 
     def sample_posterior(
         self, nsamples: int, nparams: int = 14, rng: np.random.Generator = None
@@ -502,9 +500,7 @@ class EmceeHelper(object):
         np.ndarray
             Random samples drawn from the posterior.
         """
-        samples = (
-            np.array(self.posterior.posterior.to_array()).squeeze().reshape(-1, nparams)
-        )
+        samples = self.posterior.posterior.dataset.to_dataarray().to_numpy().squeeze().reshape(-1, nparams)
         if rng is None:
             rng = np.random.default_rng()
         return rng.choice(samples, nsamples, axis=0)

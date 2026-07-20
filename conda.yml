@@ -21,6 +21,7 @@ dependencies:
   - h5py
   - tabulate
   - loguru
+  - h5netcdf
   - pip:
     - emcee
     - lmfit
