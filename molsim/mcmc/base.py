@@ -1,4 +1,4 @@
-from typing import Tuple, Union, Type, NamedTuple, List, Type
+from typing import Tuple, Type, NamedTuple, List, Type, Optional
 from collections import namedtuple
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -14,6 +14,8 @@ import emcee
 import arviz
 from molsim import __version__
 from loguru import logger
+
+from numpy.typing import NDArray
 
 # this makes sure that the full range of parameters are shown
 # for pair plots
@@ -217,7 +219,7 @@ class GaussianLikelihood(AbstractDistribution):
         return self.param.mu
 
     @classmethod
-    def from_npy_chain(cls, name: str, chain: np.ndarray, min=0.0, max=np.inf):
+    def from_npy_chain(cls, name: str, chain: NDArray[np.float64], min=0.0, max=np.inf):
         """
         Uses a chain of parameter samples, as a NumPy 1D array, to compute the mean
         and variance as parameters for a new `GaussianLikelihood` instance.
@@ -258,24 +260,24 @@ class GaussianLikelihood(AbstractDistribution):
 
 class AbstractModel(ABC):
     @abstractmethod
-    def simulate_spectrum(self, parameters: np.ndarray) -> np.ndarray:
+    def simulate_spectrum(self, parameters: NDArray[np.float64]) -> NDArray[np.float64]:
         raise NotImplementedError
 
     @abstractmethod
-    def compute_prior_likelihood(self, parameters: np.ndarray) -> float:
+    def compute_prior_likelihood(self, parameters: NDArray[np.float64]) -> float:
         raise NotImplementedError
 
     @abstractmethod
-    def compute_log_likelihood(self, parameters: np.ndarray) -> float:
+    def compute_log_likelihood(self, parameters: NDArray[np.float64]) -> float:
         raise NotImplementedError
 
     @abstractmethod
-    def prior_constraint(self, parameters: np.ndarray) -> float:
+    def prior_constraint(self, parameters: NDArray[np.float64]) -> float:
         raise NotImplementedError
 
 
 class EmceeHelper(object):
-    def __init__(self, initial: np.ndarray):
+    def __init__(self, initial: NDArray[np.float64]):
         super().__init__()
         self.initial = initial
         self.ndim = len(initial)
@@ -313,7 +315,7 @@ class EmceeHelper(object):
         logger.info("----------------------------------------------------------")
 
     @staticmethod
-    def likelihood_checks(model: AbstractModel, parameters: np.ndarray):
+    def likelihood_checks(model: AbstractModel, parameters: NDArray[np.float64]):
         logger.info(f"Performing prior log likelihood check.")
         prior = model.compute_prior_likelihood(parameters)
         if not np.isfinite(prior):
@@ -355,7 +357,7 @@ class EmceeHelper(object):
         walkers: int = 100,
         iterations: int = 1000,
         workers: int = 1,
-        scale: Union[float, None] = 1e-2,
+        scale: Optional[float] = 1e-2,
         restart: bool = False
     ):
         logger.add(f"emcee_sampling.log", rotation="100 MB", colorize=False)
@@ -464,7 +466,7 @@ class EmceeHelper(object):
                 raise NotImplementedError(f"Unrecognized parameter type! {dist_type}")
     
     @property
-    def posterior_mean(self) -> np.ndarray:
+    def posterior_mean(self) -> NDArray[np.float64]:
         """
         Return the posterior mean as averaged over all chains and
         all draws. This assumes you have rejected
@@ -478,7 +480,7 @@ class EmceeHelper(object):
 
     def sample_posterior(
         self, nsamples: int, nparams: int = 14, rng: np.random.Generator = None
-    ) -> np.ndarray:
+    ) -> np.ndarray[Tuple[int,int], np.float64]:
         """
         Take a random sample from the posterior. This is useful for simulating
         spectra for the purpose of illustrating how uncertainty in the model
@@ -509,7 +511,7 @@ class EmceeHelper(object):
 
     def posterior_to_json(
         self, name: str, model: Type[AbstractModel], return_dict: bool = False
-    ) -> Union[dict, None]:
+    ) -> Optional[dict]:
         """
         Function for exporting the model results to JSON format, typically
         for use with some other functionality in `molsim`.
@@ -559,7 +561,7 @@ class EmceeHelper(object):
 
     def posterior_to_yml(
         self, name: str, model: AbstractModel, return_dict: bool = False
-    ) -> Union[dict, None]:
+    ) -> Optional[dict]:
         summary = self.summary(model)
         n_components = len(model.components)
         output = dict()
@@ -587,7 +589,7 @@ class EmceeHelper(object):
             return None
 
 
-def compute_model_likelihoods(parameters: np.ndarray, model: AbstractModel) -> float:
+def compute_model_likelihoods(parameters: NDArray[np.float64], model: AbstractModel) -> float:
     """
     Wrapper function used in `emcee` sampling calls. This implements the
     abstraction needed to bridge the two aspects of our code: parameters
