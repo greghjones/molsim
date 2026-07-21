@@ -1043,7 +1043,7 @@ class Source(object):
 					velocity : float = 0., #lsr velocity [km/s]
 					size : float = 1E20, #diameter [arcsec]
 					solid_angle : float = None, #solid angle on the sky; pi*(size/2)^2 [arcsec^2]
-					continuum : Continuum = None, #a continuum object
+					continuum : Continuum = Continuum(), #a continuum object
 					column : float = 1.E13, #column density [cm-2]
 					Tex : float | NDArray[np.float64] = 300., #float or numpy array of excitation temperatures [K]
 					Tkin : float = None, #kinetic temperature of source [K]
@@ -1056,7 +1056,7 @@ class Source(object):
 		self.velocity = velocity
 		self.size = size
 		self.solid_angle = solid_angle
-		self.continuum = continuum if continuum is not None else Continuum()
+		self.continuum = continuum
 		self.column = column
 		self.Tex = Tex
 		self.Tkin = Tkin
@@ -1115,8 +1115,8 @@ class Observation(object):
 					name = None, #a name
 					coords = None, #an astropy SkyCoord object		
 					vlsr = None, #a nominal vlsr for the observed objection [km/s]			
-					spectrum = None, #a spectrum object for this observation
-					observatory = None, #an observatory object for this observation
+					spectrum : Spectrum = Spectrum(), #a spectrum object for this observation
+					observatory : Observatory = Observatory(), #an observatory object for this observation
 					id = None, #a unique ID for this observation
 					notes = None, #notes
 				):
@@ -1124,8 +1124,8 @@ class Observation(object):
 		self.name = name
 		self.coords = coords		
 		self.vlsr = vlsr
-		self.spectrum = spectrum if spectrum is not None else Spectrum()
-		self.observatory = observatory if observatory is not None else Observatory()
+		self.spectrum = spectrum
+		self.observatory = observatory
 		self.id = id
 		self.notes = notes
 		
