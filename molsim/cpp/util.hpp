@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <stdlib.h>
 #include <vector>
+#include <print>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -14,6 +15,14 @@
 #elif defined(__ARM_NEON) || defined(__AVX2__)
 #define MOLSIM_ALIGN 256
 #endif
+
+#define ERROR(...) \
+do { \
+    std::print(stderr, "{}({}): error: ", __FILE__, __LINE__); \
+    std::print(stderr, __VA_ARGS__); \
+    std::print(stderr, "\n"); \
+    exit(1); \
+} while(0);
 
 template <typename T, size_t AlignedAs>
 class AlignedAllocator
@@ -67,8 +76,8 @@ class AlignedVector
     using size_type = std::ptrdiff_t;
     using difference_type = std::ptrdiff_t;
 
-    using iterator = typename std::vector<T>::iterator;
-    using const_iterator = typename std::vector<T>::const_iterator;
+    using iterator = typename std::vector<T, AlignedAllocator<T,MOLSIM_ALIGN>>::iterator;
+    using const_iterator = typename std::vector<T, AlignedAllocator<T,MOLSIM_ALIGN>>::const_iterator;
     using reverse_iterator = typename std::vector<T>::reverse_iterator;
     using const_reverse_iterator = typename std::vector<T>::const_reverse_iterator;
 
@@ -76,11 +85,7 @@ class AlignedVector
     private:
         std::vector<T, AlignedAllocator<T, MOLSIM_ALIGN>> _v;
 
-    public:
-        template <class A>
-        
-        explicit AlignedVector(size_type count) { _v = std::vector<T, AlignedAllocator<T, MOLSIM_ALIGN>>(count); }
-        
+    public:        
         constexpr AlignedVector(size_type count, const T& value) { _v = std::vector<T, AlignedAllocator<T, MOLSIM_ALIGN>>(count, value); }
         
         template<class InputIt>
@@ -93,7 +98,11 @@ class AlignedVector
         constexpr AlignedVector(std::initializer_list<T> init) : _v(init) { }
 
         constexpr AlignedVector(const std::vector<T>& other) : _v(other._v) { }
-        AlignedVector(const pybind11::array_t<T> other) : _v(other.data(), other.data()+other.size() ) { }
+        AlignedVector(const pybind11::array_t<T>& other) 
+        {
+            if (other.is_none()) _v = {};
+            else _v = std::vector<T, AlignedAllocator<T, MOLSIM_ALIGN>>(other.data(), other.data()+other.size());
+        }
 
         constexpr AlignedVector& operator=(const AlignedVector& other) { _v = other._v; return *this; }
         AlignedVector& operator=(AlignedVector&& other) noexcept { _v = std::move(other._v); return *this; }
@@ -154,6 +163,5 @@ class AlignedVector
 template <class T>
 constexpr bool operator==(const AlignedVector<T>& lhs,
                           const AlignedVector<T>& rhs) { return lhs._v == rhs._v; }
-
 
 #endif

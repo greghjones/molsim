@@ -1,10 +1,11 @@
 project('molsim_accel', 'c',
   version : '0.1.0',
   meson_version: '>=1.1.0',
-  default_options : ['warning_level=2'],
+  default_options : ['warning_level=2','b_lto=true','cpp_std=c++23'],
 )
 
 add_languages('fortran', native: false)
+add_languages('cpp', native: false)
 
 py = import('python').find_installation(pure: false)
 
@@ -33,6 +34,20 @@ py.extension_module('fortran_accel',
   ['molsim/fort_funcs.f90', fort_accel_source, incdir_f2py / 'fortranobject.c'],
   dependencies : [np_dep, f2py_dep],
   fortran_args : '-march=native',
+  subdir: 'molsim',
+  install : true,
+)
+
+pybind11_dep = dependency('pybind11')
+
+sleef_dep = declare_dependency(
+    include_directories : ['molsim/cpp/sleef/include']
+)
+
+py.extension_module('molsim_cpp',
+  ['molsim/cpp/classes.cxx', 'molsim/cpp/binding.cxx'],
+  dependencies : [np_dep, sleef_dep, pybind11_dep],
+  cpp_args: ['-fopenmp', '-march=native'],
   subdir: 'molsim',
   install : true,
 )

@@ -1,6 +1,6 @@
 [build-system]
 # numpy>=2.0 is required for dependency('numpy') support in meson.build
-requires = ["meson-python>=0.15.0", "numpy>=2.0"]
+requires = ["meson-python>=0.15.0", "numpy>=2.0", "pybind11"]
 build-backend = "mesonpy"
 
 [project]
