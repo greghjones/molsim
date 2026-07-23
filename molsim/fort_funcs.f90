@@ -38,15 +38,15 @@ subroutine calc_tb(freq_profile, tau_profile, tbg_profile, tex, h, k, tb_profile
         texv = 1.0d0/tex(1)
         do i=1,profilelength
             temp1 = scale*freq_profile(i)
-            j_t   = 1.0d0 / (exp(texv*temp1)           - 1.0d0)
-            j_tbg = 1.0d0 / (exp(temp1/tbg_profile(i)) - 1.0d0)
+            j_t   = temp1 / (exp(texv*temp1)           - 1.0d0)
+            j_tbg = temp1 / (exp(temp1/tbg_profile(i)) - 1.0d0)
             tb_profile(i) = (j_t - j_tbg)*(1.0d0 - exp(-tau_profile(i)))
         enddo
     else
         do i=1,profilelength
             temp1 = scale*freq_profile(i)
-            j_t   = 1.0d0 / (exp(temp1/tex(i))         - 1.0d0)
-            j_tbg = 1.0d0 / (exp(temp1/tbg_profile(i)) - 1.0d0)
+            j_t   = temp1 / (exp(temp1/tex(i))         - 1.0d0)
+            j_tbg = temp1 / (exp(temp1/tbg_profile(i)) - 1.0d0)
             tb_profile(i) = (j_t - j_tbg)*(1.0d0 - exp(-tau_profile(i)))
         enddo
     endif
