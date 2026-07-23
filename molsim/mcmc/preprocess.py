@@ -15,7 +15,7 @@ from sklearn.metrics import mean_squared_error
 from tqdm.auto import tqdm
 from joblib import dump
 
-from molsim.classes import Catalog, Spectrum, Observation
+from molsim.classes import Catalog, Spectrum, Observation, Observatory
 from molsim.mcmc import compute
 from molsim.file_handling import _load_catalog
 
@@ -72,7 +72,7 @@ class DataChunk:
         spectrum.noise = self.noise
         return spectrum
 
-    def to_observation(self, observatory=None) -> Observation:
+    def to_observation(self, observatory=Observatory()) -> Observation:
         spectrum = self.to_spectrum()
         observation = Observation(spectrum=spectrum, observatory=observatory)
         return observation
@@ -420,7 +420,7 @@ def preprocess_spectrum(
     freq_range: Tuple[float, float] = (0.0, np.inf),
     block_interlopers: bool = False,
     interloper_threshold: float = 6.0,
-    observatory=None,
+    observatory=Observatory(),
     legacy: bool = False,
     sim_cutoff: float = 0.1,
     line_wash_threshold: float = 3.5,
