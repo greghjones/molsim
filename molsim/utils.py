@@ -10,6 +10,7 @@ import json
 from ruamel.yaml import YAML
 from glob import glob
 from typing import List
+from numpy.typing import NDArray
 from multiprocessing import Pool
 from subprocess import Popen, PIPE, TimeoutExpired
 from tempfile import NamedTemporaryFile
@@ -146,7 +147,7 @@ def _apply_vlsr(frequency,vlsr):
 # JIT'd version of the above function; PyMC3 no like Numba
 _njit_apply_vlsr = njit(_apply_vlsr)
 
-def _apply_beam(freq_arr,int_arr,source_size,dish_size,return_beam=False):
+def _apply_beam(freq_arr :NDArray[np.float64], int_arr : NDArray[np.float64], source_size : float, dish_size : float,return_beam=False):
 	beam_size = 206265 * 1.22 * (cm/(freq_arr * 1E6)) / dish_size #get beam size in arcsec
 	beam_dilution = source_size**2 / (beam_size**2 + source_size**2)
 	if return_beam is False:
