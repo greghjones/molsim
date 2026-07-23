@@ -5,7 +5,7 @@ import matplotlib
 import numpy as np
 
 def plot_mf(spectrum,params={}):
-	'''
+	r'''
 	Plots a matched filter spectrum or spectra, with optional annotations and other parameters
 	as defined in the parameters dictionary.  The keywords that can be specified,
 	and their defaults, are as follows:	
@@ -152,7 +152,7 @@ def plot_mf(spectrum,params={}):
 	return
 	
 def plot_stack(spectrum,params={}):
-	'''
+	r'''
 	Plots a stacked spectrum, with optional annotations and other parameters
 	as defined in the parameters dictionary.  The keywords that can be specified,
 	and their defaults, are as follows:	
