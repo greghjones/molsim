@@ -1145,7 +1145,7 @@ class Simulation(object):
 					ul = [float('-inf')], #lower limits
 					line_profile : str = 'Gaussian', #simulate a line profile or not
 					sim_width = 10, #fwhms to simulate +/- line center
-					res = 10., #resolution if simulating line profiles [kHz]
+					res = 0.010, #resolution if simulating line profiles [MHz]
 					mol : Molecule = None, #Molecule object associated with this simulation
 					units : str = 'K', #units for the simulation; accepts 'K', 'mK', 'Jy/beam'
 					notes = None, #notes
