@@ -1350,9 +1350,11 @@ class Simulation(object):
 				l_idxs = find_nearest_vectorized(self.spectrum.freq_profile,lls_raw)
 				u_idxs = find_nearest_vectorized(self.spectrum.freq_profile,uls_raw)
 			self.spectrum.Tbg_profile = self.source.continuum.Tbg(self.spectrum.freq_profile)
-			# Python equivalent: _make_gaussians
+			# Python equivalent:
+			# self.spectrum.tau_profile = self._make_gaussians(self.spectrum.frequency, self.spectrum.tau, l_idxs, u_idxs, self.spectrum.freq_profile, self.source.dV, ckm)
 			self.spectrum.tau_profile = make_gaussians_accel(self.spectrum.frequency, self.spectrum.tau, l_idxs, u_idxs, self.spectrum.freq_profile, self.source.dV, ckm)
-			# Python equivalent: _calc_Tb
+			# Python equivalent:
+			# self.spectrum.int_profile = self._calc_Tb(self.spectrum.freq_profile,self.spectrum.tau_profile,self.spectrum.Tbg_profile,self.source.Tex)
 			self.spectrum.int_profile = calc_Tb_accel(self.spectrum.freq_profile,self.spectrum.tau_profile,self.spectrum.Tbg_profile,self.source.Tex, h, k)
 			return
 		
