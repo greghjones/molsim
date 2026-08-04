@@ -88,16 +88,7 @@ def sum_spectra(sims,thin=True,Tex=None,Tbg=None,res=None,noise=None,override_fr
 			int_arr += int_arr0	
 		
 		#now we apply the corrections at the specified Tex
-		J_T = ((h*freq_arr*10**6/k)*
-			  (np.exp(((h*freq_arr*10**6)/
-			  (k*Tex))) -1)**-1
-			  )
-		J_Tbg = ((h*freq_arr*10**6/k)*
-			  (np.exp(((h*freq_arr*10**6)/
-			  (k*sum_Tbg))) -1)**-1
-			  )			  
-		
-		int_arr = (J_T - J_Tbg)*(1 - np.exp(-int_arr))
+		int_arr = Spectrum.calc_Tb(freq_arr,int_arr,sum_Tbg,Tex)
 
 		##########################
 		# For Spectra in Jy/Beam #
