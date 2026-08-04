@@ -27,22 +27,34 @@ class Catalog
         bool measured;
 };
 
+class Molecule;
+
 class PartitionFunction
 {
     public:
-        PartitionFunction(const py::object& qpart);
+        PartitionFunction(const py::object& qpart, Molecule* mol);
+        PartitionFunction(const py::object& qpart) : PartitionFunction(qpart, nullptr) { };
+
         inline double q(double Tex) { return qrot(Tex)*qvib(Tex); };
         double qrot(double Tex);
 
         // not yet implemented, guarded in constructor
-        inline double qvib(double Tex) { return 1.0; };
+        inline double qvib(double) { return 1.0; };
 
+    private:
+        enum part_method { interpolation, counting } flag;
+        double sigma;
+        Molecule* parent_mol;
         AlignedVector<double> temps;
         AlignedVector<double> vals;
+
+        double qrot_counting(double Tex);
 };
 
 class Molecule
 {
+    friend class PartitionFunction;
+
     public:
         Molecule(const py::object& mol_py);
         PartitionFunction qpart;
@@ -51,6 +63,9 @@ class Molecule
         inline double q   (double Tex) { return qpart.q(Tex); };
         inline double qrot(double Tex) { return qpart.qrot(Tex); };
         inline double qvib(double Tex) { return qpart.qvib(Tex); };
+    protected:
+        AlignedVector<double> level_degeneracies;
+        AlignedVector<double> level_energies;
 };
 
 class Spectrum

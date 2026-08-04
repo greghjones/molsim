@@ -308,32 +308,60 @@ Catalog::Catalog(const py::object& cat) :
 }
 
 Molecule::Molecule(const py::object& mol_py) :
-    qpart(mol_py.attr("qpart").cast<py::object>()),
-    catalog(mol_py.attr("catalog").cast<py::object>()) { }
-
-PartitionFunction::PartitionFunction(const py::object& qpart)
+    qpart(mol_py.attr("qpart").cast<py::object>(), this),
+    catalog(mol_py.attr("catalog").cast<py::object>()),
+    level_degeneracies(),
+    level_energies()
 {
-    std::string form_s = qpart.attr("form").cast<std::string>();
-    lowercase_str(form_s);
-    if (form_s != "interpolation")
+    if(!mol_py.attr("levels").is_none())
     {
-        ERROR("Only interpolation implemented for partition function!");
-        return;
+        const py::list& levellist = mol_py.attr("levels").cast<py::list>();
+        auto nlevels = levellist.size();
+        level_degeneracies.reserve(nlevels);
+        level_energies.reserve(nlevels);
+        for (auto& level : levellist)
+        {
+            level_degeneracies.push_back(level.attr("g").cast<double>());
+            level_energies.push_back(level.attr("energy").cast<double>());
+        }
     }
+}
+
+PartitionFunction::PartitionFunction(const py::object& qpart, Molecule* mol)
+{
+    std::string flag_s = qpart.attr("flag").cast<std::string>();
+    lowercase_str(flag_s);
+    if (flag_s == "interpolation")
+    {
+        flag = interpolation;
+        auto t = qpart.attr("temps").cast<py::array_t<double>>();
+
+        sigma = 1.0;
+
+        temps = AlignedVector<double>(t);
+        vals = AlignedVector<double>(qpart.attr("vals").cast<py::array_t<double>>());
+    }
+    else if (flag_s == "counting")
+    {
+        if (!mol) ERROR("Counting selected for partition function type, but no molecule attached!");
+        sigma = qpart.attr("sigma").is_none() ? 1.0 : qpart.attr("sigma").cast<double>();
+        flag = counting;
+        parent_mol = mol;
+    }
+    else
+        ERROR("Only interpolation implemented for partition function! Selected type is: {}", flag_s);
+
 
     if (!qpart.attr("vib_states").is_none())
     {
         ERROR("Vibrational partition functions not yet implemented!");
         return;
     }
-
-    auto t = qpart.attr("temps").cast<py::array_t<double>>();
-
-    temps = AlignedVector<double>(t);
-    vals = AlignedVector<double>(qpart.attr("vals").cast<py::array_t<double>>());
 }
 
 double PartitionFunction::qrot(double Tex)
+{
+    if (flag == interpolation)
 {
     int i = 0;
     while(Tex > temps[i] && i < temps.size()) i++;
@@ -344,6 +372,29 @@ double PartitionFunction::qrot(double Tex)
     const double m = (vals[i] - vals[i-1])/(temps[i] - temps[i-1]);
     double result = vals[i-1] + m*(Tex - temps[i-1]);
     return result;
+    }
+    else if (flag == counting) return qrot_counting(Tex);
+    else ERROR("Only \"interpolation\" and \"counting\" supported for rotational partition function.");
+}
+
+double PartitionFunction::qrot_counting(double Tex)
+{
+    const Molecule& mol = *parent_mol;
+    auto& e = mol.level_energies; // in K
+    auto& g = mol.level_degeneracies;
+
+    auto len = e.size();
+    assert(g.size() == len);
+
+    double Tinv = -1.0/Tex;
+
+    double result = 0.0;
+
+    #pragma omp simd
+    for (long i = 0; i < len; i++)
+        result += g[i]*std::exp(e[i]*Tinv);
+
+    return result/sigma;
 }
 
 Spectrum::Spectrum() :
