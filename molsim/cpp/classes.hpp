@@ -93,10 +93,19 @@ class Continuum
         std::string notes;
 
         AlignedVector<double> Tbg(const AlignedVector<double>& freq) { AlignedVector<double> tbg(freq.size()); Tbg(freq, tbg); return tbg; };
-        AlignedVector<double> Ibg(const AlignedVector<double>& freq) { AlignedVector<double> ibg(freq.size()); Ibg(freq, ibg); return ibg; };
+        AlignedVector<double> Ibg(const AlignedVector<double>& freq)
+        {
+            AlignedVector<double> ibg(freq.size());
+            if (type == thermal)
+                Ibg(freq, params, ibg);
+            else
+                Ibg(freq, Tbg(freq), ibg);
+            return ibg;
+        };
 
         void Tbg(const AlignedVector<double>& freq, AlignedVector<double>& Tbg);
-        void Ibg(const AlignedVector<double>& freq, AlignedVector<double>& Ibg);
+        void Ibg(const AlignedVector<double>& freq, double Tbg, AlignedVector<double>& Ibg);
+        void Ibg(const AlignedVector<double>& freq, const AlignedVector<double>& Tbg, AlignedVector<double>& Ibg);
 };
 
 class Source
@@ -163,7 +172,7 @@ class Simulation
                    const py::array_t<double>& ul = py::array_t<double>(),
                    const std::string& line_profile = "gaussian",
                    double sim_width = 10.0,
-                   double res = 10.0,
+                   double res = 0.010,
                    const py::object& mol = py::none(),
                    std::string units = "K",
                    const std::string& notes = "",

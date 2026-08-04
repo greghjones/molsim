@@ -31,7 +31,7 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
                       "ul"_a = py::array_t<double>(),
                       "line_profile"_a = "gaussian",
                       "sim_width"_a = 10.0,
-                      "res"_a = 10.0,
+                      "res"_a = 0.010,
                       "mol"_a = py::none(),
                       "units"_a = "K",
                       "notes"_a = "",

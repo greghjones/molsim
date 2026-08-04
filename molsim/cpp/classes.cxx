@@ -233,8 +233,6 @@ inline std::vector<char> _trim_arr_mask(const AlignedVector<T1>& arr, const Alig
     assert(lls.size() == uls.size());
     assert(arr.size() == key_arr.size());
 
-    auto s = key_arr.size();
-
     std::vector<char> mask(arr.size(), false);
 
     for (long i = 0; i < lls.size(); i++)
@@ -258,7 +256,9 @@ AlignedVector<T> _apply_mask(const AlignedVector<T>& in, const std::vector<char>
     assert(mask.size() == in.size());
     AlignedVector<T> out {};
 
-    for (long i = 0; i < mask.size(); i++)
+    long size = mask.size();
+
+    for (long i = 0; i < size; i++)
         if (mask[i]) out.push_back(in[i]);
 
     return out;
@@ -398,32 +398,100 @@ void Continuum::Tbg(const AlignedVector<double>& freq, AlignedVector<double>& tb
         ERROR("Only thermal continuum supported.");
 }
 
-void Continuum::Ibg(const AlignedVector<double>& freq, AlignedVector<double>& ibg)
+void Continuum::Ibg(const AlignedVector<double>& freq, double tbg, AlignedVector<double>& ibg)
 {
     const auto len = freq.size();
     if (ibg.size() != len) ibg.resize(len);
 
     const double f = 2.0e26 / (cm * cm);
 
-    AlignedVector<double> tbg {};
-
-    const double* __restrict ptbg;
-    if (type == thermal)
-        ptbg = &params;
-    else
-    {
-        tbg = Tbg(freq);
-        ptbg = tbg.data();
-    }
-    
     const double* __restrict pfreq = freq.data();
-          double* __restrict pibg = ibg.data();
+          double* __restrict pibg  = ibg.data();
 
     #if defined(__AVX2__)
     const int vecsize = 4;
     const auto maxit = len/vecsize;
     const auto remainder = len % vecsize;
-    const long tstep = type == thermal ? 0 : vecsize;
+    const auto vf = _mm256_set1_pd(f);
+    const auto vmhz = _mm256_set1_pd(1.0e6);
+    const auto vh = _mm256_set1_pd(h);
+    const auto vk = _mm256_set1_pd(k);
+    const auto vt = _mm256_set1_pd(tbg);
+    for (long i = 0; i < maxit; i++)
+    {
+        auto v0 = _mm256_load_pd(pfreq);
+        auto v1 = _mm256_mul_pd(v0, vmhz);
+        auto v2 = _mm256_mul_pd(v1, vh);
+        auto v3 = _mm256_mul_pd(vt, vk);
+        auto v4 = _mm256_div_pd(v2, v3);
+        auto v5 = _mm256_mul_pd(v1, v2);
+             v5 = _mm256_mul_pd(v1, v5);
+        auto v6 = Sleef_expm1d4_u10avx2(v4);
+        auto v7 = _mm256_mul_pd(vf, v5);
+        auto res = _mm256_div_pd(v7, v6);
+        _mm256_store_pd(pibg, res);
+        pfreq += vecsize;
+        pibg  += vecsize;
+    }
+    #elif defined(__ARM_NEON)
+    const int vecsize = 2;
+    const auto maxit = len/vecsize;
+    const auto remainder = len % vecsize;
+    const auto vf = vdupq_n_f64(f);
+    const auto vmhz = vdupq_n_f64(1.0e6);
+    const auto vh = vdupq_n_f64(h);
+    // const auto vk = vdupq_n_f64(k);
+    // const auto vt = vdupq_n_f64(tbg);
+    const auto v3 = vdupq_n_f64(k*tbg);
+    for (long i = 0; i < maxit; i++)
+    {
+        auto v0 = vld1q_f64(pfreq);
+        auto v1 = vmulq_f64(v0, vmhz);
+        auto v2 = vmulq_f64(v1, vh);
+        auto v4 = vdivq_f64(v2, v3);
+        auto v5 = vmulq_f64(v1, v2);
+             v5 = vmulq_f64(v1, v5);
+        auto v6 = Sleef_expm1d2_u10advsimd(v4);
+        auto v7 = vmulq_f64(vf, v5);
+        auto res = vdivq_f64(v7, v6);
+        vst1q_f64(pibg, res);
+        pfreq += vecsize;
+        pibg += vecsize;
+    }
+    #else
+    const auto remainder = len;
+    #endif
+    const double s3 = tbg*k;
+    for (long i = 0; i < remainder; i++)
+    {
+        double v1 = (*pfreq)*1.0e6;
+        double v2 = v1*h;
+        double v4 = v2/s3;
+        double v5 = v1*v1*v2;
+        double v6 = Sleef_expm1d1_u10purecfma(v4);
+        double v7 = f*v5;
+        *pibg = v6*v7;
+        pfreq++;
+        pibg++;
+    }
+}
+
+void Continuum::Ibg(const AlignedVector<double>& freq, const AlignedVector<double>& tbg, AlignedVector<double>& ibg)
+{
+    const auto len = freq.size();
+    if (ibg.size() != len) ibg.resize(len);
+
+    const double f = 2.0e26 / (cm * cm);
+
+    const double* __restrict ptbg = tbg.data();
+    
+    const double* __restrict pfreq = freq.data();
+          double* __restrict pibg  = ibg.data();
+
+    #if defined(__AVX2__)
+    const int vecsize = 4;
+    const auto maxit = len/vecsize;
+    const auto remainder = len % vecsize;
     const auto vf = _mm256_set1_pd(f);
     const auto vmhz = _mm256_set1_pd(1.0e6);
     const auto vh = _mm256_set1_pd(h);
@@ -443,14 +511,13 @@ void Continuum::Ibg(const AlignedVector<double>& freq, AlignedVector<double>& ib
         auto res = _mm256_div_pd(v7, v6);
         _mm256_store_pd(pibg, res);
         pfreq += vecsize;
-        ptbg += tstep;
-        pibg += vecsize;
+        ptbg  += vecsize;
+        pibg  += vecsize;
     }
     #elif defined(__ARM_NEON)
     const int vecsize = 2;
     const auto maxit = len/vecsize;
     const auto remainder = len % vecsize;
-    const long tstep = type == thermal ? 0 : vecsize;
     const auto vf = vdupq_n_f64(f);
     const auto vmhz = vdupq_n_f64(1.0e6);
     const auto vh = vdupq_n_f64(h);
@@ -470,13 +537,13 @@ void Continuum::Ibg(const AlignedVector<double>& freq, AlignedVector<double>& ib
         auto res = vdivq_f64(v7, v6);
         vst1q_f64(pibg, res);
         pfreq += vecsize;
-        ptbg += tstep;
+        ptbg += vecsize;
         pibg += vecsize;
     }
     #else
     const auto remainder = len;
+    #pragma omp simd
     #endif
-    const long tstep2 = thermal ? 0 : 1;
     for (long i = 0; i < remainder; i++)
     {
         double v1 = (*pfreq)*1.0e6;
@@ -488,18 +555,9 @@ void Continuum::Ibg(const AlignedVector<double>& freq, AlignedVector<double>& ib
         double v7 = f*v5;
         *pibg = v6*v7;
         pfreq++;
-        ptbg += tstep2;
+        ptbg++;
         pibg++;
     }
-
-    // v1 = freq*1e6
-    // v2 = v1*h
-    // v3 = tbg*k
-    // v4 = v2 / v3
-    // v5 = v1*v1*v2
-    // v6 = expm1(v4)
-    // v7 = f*v5
-    // res = v7 / v6
 }
 
 Source::Source() :
@@ -547,7 +605,7 @@ Observatory::Observatory(const py::object& obs) : Observatory()
 }
 
 Observation::Observation() :
-    spectrum(), observatory(), vlsr(0.0), id(0),
+    vlsr(0.0), spectrum(), observatory(), id(0),
     notes("") { }
 
 Observation::Observation(const py::object& obs) : Observation()
@@ -604,6 +662,9 @@ Simulation::Simulation(const py::object& spectrum_py,
     calc_tau();
     calc_bg();
     // calc_Iv(); // implement later, not used in simple workflows it seems
+    if (source.continuum.type == Continuum::thermal)
+        calc_Tb(spectrum.frequency, spectrum.tau, source.continuum.params, source.Tex, spectrum.Tb);
+    else
     calc_Tb(spectrum.frequency, spectrum.tau, spectrum.Tbg, source.Tex, spectrum.Tb);
     make_lines();
     beam_correct();
@@ -639,7 +700,7 @@ void Simulation::set_units()
         if (!observation.has_value() || (!observation->observatory.has_value()))
             ERROR("Missing observation data for synth_beam!");
 
-        const double omega = (observation->observatory->synth_beam.first) * (observation->observatory->synth_beam.second);
+        // const double omega = (observation->observatory->synth_beam.first) * (observation->observatory->synth_beam.second);
         ERROR("Unimplemented until I figure out meaning of magic numbers.");
     }
 };
@@ -782,8 +843,11 @@ void Simulation::calc_tau()
 
 void Simulation::calc_bg()
 {
-    source.continuum.Ibg(spectrum.frequency, spectrum.Ibg);
     source.continuum.Tbg(spectrum.frequency, spectrum.Tbg);
+    if (source.continuum.type == Continuum::thermal)
+        source.continuum.Ibg(spectrum.frequency, source.continuum.params, spectrum.Ibg);
+    else
+        source.continuum.Ibg(spectrum.frequency, spectrum.Tbg, spectrum.Ibg);
 }
 
 void Simulation::calc_Tb(const AlignedVector<double> frequency,
@@ -792,7 +856,6 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
                          double Tex,
                                AlignedVector<double>& Tb)
 {
-
     const auto len = frequency.size();
     const double texinv = 1.0/Tex;
     const double scale = h*1.0e6/k;
@@ -838,8 +901,10 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
     }
     #elif defined(__ARM_NEON)
     const long vecsize = 2;
-    const auto maxit = len/vecsize;
-    const auto remainder = len - maxit*vecsize;
+    const long unrollfactor = 1;
+    const long itlen = vecsize*unrollfactor;
+    const auto maxit = len/itlen;
+    const auto remainder = len % itlen;
     const auto vtexinv = vdupq_n_f64(texinv);
     const auto vscale = vdupq_n_f64(scale);
     const auto vm1 = vdupq_n_f64(-1.0);
@@ -860,10 +925,10 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
         auto res = vsubq_f64(j_tbg, j_t);
         res = vmulq_f64(tau, res);
         vst1q_f64(ptb, res);
-        pfreq += vecsize;
-        ptbg += vecsize;
-        ptau += vecsize;
-        ptb += vecsize;
+        pfreq += itlen;
+        ptbg += itlen;
+        ptau += itlen;
+        ptb += itlen;
     }
     #else
     const long remainder = len;
@@ -1081,8 +1146,8 @@ void Simulation::make_lines()
             AlignedVector<double> ul_trim = {uls_raw[0]};
             for (long i = 1; i < lls_raw.size(); i++)
             {
-                if (lls_raw[i] < *ul_trim.end())
-                    *ul_trim.end() = uls_raw[i];
+                if (lls_raw[i] < ul_trim.back())
+                    ul_trim.back() = uls_raw[i];
                 else
                 {
                     ll_trim.push_back(lls_raw[i]);
@@ -1142,7 +1207,7 @@ void Simulation::make_gaussians(const AlignedVector<double>& centers, const Alig
 
     const double scale1 = 2*(dV/ckm/2.35482)*(dV/ckm/2.35482);
 
-    const int nthreads = omp_get_num_threads();
+    // const int nthreads = omp_get_num_threads();
 
     // std::vector<AlignedVector<double>> buffer(nthreads, AlignedVector<double>(y.size()));
 
@@ -1171,7 +1236,7 @@ void Simulation::make_gaussians(const AlignedVector<double>& centers, const Alig
             {
                 auto vinc = _mm256_load_pd(px);
                 auto vy   = _mm256_load_pd(py);
-                    vinc = _mm256_min_pd(vinc, vc);
+                    vinc = _mm256_sub_pd(vinc, vc);
                     vinc = _mm256_mul_pd(vinc, vinc);
                     vinc = _mm256_mul_pd(vs, vinc);
                     vinc = Sleef_expd4_u10avx2(vinc);
@@ -1201,10 +1266,10 @@ void Simulation::make_gaussians(const AlignedVector<double>& centers, const Alig
                 auto vy3   = vld1q_f64(py+2*vecsize);
                 auto vy4   = vld1q_f64(py+3*vecsize);
 
-                vinc1 = vminq_f64(vinc1, vc);
-                vinc2 = vminq_f64(vinc2, vc);
-                vinc3 = vminq_f64(vinc3, vc);
-                vinc4 = vminq_f64(vinc4, vc);
+                vinc1 = vsubq_f64(vinc1, vc);
+                vinc2 = vsubq_f64(vinc2, vc);
+                vinc3 = vsubq_f64(vinc3, vc);
+                vinc4 = vsubq_f64(vinc4, vc);
 
                 vinc1 = vmulq_f64(vinc1, vinc1);
                 vinc2 = vmulq_f64(vinc2, vinc2);
