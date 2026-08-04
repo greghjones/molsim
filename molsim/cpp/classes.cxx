@@ -10,7 +10,9 @@
 #include "pybind11/pytypes.h"
 
 #if defined(__AVX2__)
+#include <emmintrin.h>
 #include <immintrin.h>
+#include "sleefinline_avx2.h"
 #elif defined(__ARM_NEON)
 #include <arm_neon.h>
 #include "sleefinline_advsimd.hpp"
@@ -460,20 +462,20 @@ void Continuum::Ibg(const AlignedVector<double>& freq, double tbg, AlignedVector
           double* __restrict pibg  = ibg.data();
 
     #if defined(__AVX2__)
-    const int vecsize = 4;
-    const auto maxit = len/vecsize;
-    const auto remainder = len % vecsize;
+    const long vecsize = 4;
+    const long unrollfactor = 1;
+    const long itlen = vecsize*unrollfactor;
+    const auto maxit = len/itlen;
+    const auto remainder = len % itlen;
     const auto vf = _mm256_set1_pd(f);
     const auto vmhz = _mm256_set1_pd(1.0e6);
     const auto vh = _mm256_set1_pd(h);
-    const auto vk = _mm256_set1_pd(k);
-    const auto vt = _mm256_set1_pd(tbg);
+    const auto v3 = _mm256_set1_pd(k*tbg);
     for (long i = 0; i < maxit; i++)
     {
         auto v0 = _mm256_load_pd(pfreq);
         auto v1 = _mm256_mul_pd(v0, vmhz);
         auto v2 = _mm256_mul_pd(v1, vh);
-        auto v3 = _mm256_mul_pd(vt, vk);
         auto v4 = _mm256_div_pd(v2, v3);
         auto v5 = _mm256_mul_pd(v1, v2);
              v5 = _mm256_mul_pd(v1, v5);
@@ -481,8 +483,8 @@ void Continuum::Ibg(const AlignedVector<double>& freq, double tbg, AlignedVector
         auto v7 = _mm256_mul_pd(vf, v5);
         auto res = _mm256_div_pd(v7, v6);
         _mm256_store_pd(pibg, res);
-        pfreq += vecsize;
-        pibg  += vecsize;
+        pfreq += itlen;
+        pibg  += itlen;
     }
     #elif defined(__ARM_NEON)
     const int vecsize = 2;
@@ -521,7 +523,7 @@ void Continuum::Ibg(const AlignedVector<double>& freq, double tbg, AlignedVector
         double v5 = v1*v1*v2;
         double v6 = Sleef_expm1d1_u10purecfma(v4);
         double v7 = f*v5;
-        *pibg = v6*v7;
+        *pibg = v7/v6;
         pfreq++;
         pibg++;
     }
@@ -604,7 +606,7 @@ void Continuum::Ibg(const AlignedVector<double>& freq, const AlignedVector<doubl
         double v5 = v1*v1*v2;
         double v6 = Sleef_expm1d1_u10purecfma(v4);
         double v7 = f*v5;
-        *pibg = v6*v7;
+        *pibg = v7/v6;
         pfreq++;
         ptbg++;
         pibg++;
@@ -802,7 +804,7 @@ void Simulation::calc_tau()
 
     for (auto& element : spectrum.tau) element = 0.0;
 
-    const    int* __restrict pgup = gup.data();
+    const int* __restrict pgup = gup.data();
     const double* __restrict paij = aij.data();
     const double* __restrict peup = eup.data();
     const double* __restrict pfreq = spectrum.frequency.data();
@@ -811,8 +813,11 @@ void Simulation::calc_tau()
 
     #if defined(__AVX2__)
     const long vecsize = 4;
-    const long maxit = len/vecsize;
-    const long remainder = len - maxit*vecsize;
+    const long unrollfactor = 1;
+    const long itlen = vecsize*unrollfactor;
+    const long maxit = len/itlen;
+    const long remainder = len % itlen;
+    auto pgup2 = reinterpret_cast<const __m128i* __restrict>(pgup);
     auto vtexinv    = _mm256_set1_pd(texinv);
     auto vboltzmann = _mm256_set1_pd(boltzmannscale);
     auto vprefactor = _mm256_set1_pd(prefactor);
@@ -823,11 +828,11 @@ void Simulation::calc_tau()
         exp1 = Sleef_expd4_u10avx2(exp1);
         auto f = _mm256_load_pd(pfreq);
         auto exp2 = _mm256_mul_pd(vboltzmann, f);
-        exp2 = Sleef_expd4_u10avx2(exp2);
+        exp2 = Sleef_expm1d4_u10avx2(exp2);
         auto finv = _mm256_mul_pd(f, f);
         finv = _mm256_mul_pd(finv, f);
         finv = _mm256_div_pd(vprefactor, finv);
-        auto gupint = _mm_load_epi32(pgup);
+        auto gupint = _mm_load_si128(pgup2);
         auto gup = _mm256_cvtepi32_pd(gupint);
         auto res = _mm256_load_pd(paij);
         res = _mm256_mul_pd(res, gup);
@@ -835,12 +840,13 @@ void Simulation::calc_tau()
         res = _mm256_mul_pd(res, finv);
         res = _mm256_mul_pd(res, exp1);
         _mm256_store_pd(ptau, res);
-        pgup  += vecsize;
-        peup  += vecsize;
-        paij  += vecsize;
-        pfreq += vecsize;
-        ptau  += vecsize;
+        pgup2  += unrollfactor; // due to pointer type
+        peup  += itlen;
+        paij  += itlen;
+        pfreq += itlen;
+        ptau  += itlen;
     }
+    pgup = reinterpret_cast<const int* __restrict>(pgup2);
     #elif defined(__ARM_NEON)
     const long vecsize = 2;
     const long maxit = len/vecsize;
@@ -876,6 +882,7 @@ void Simulation::calc_tau()
     }
     #else
     const auto remainder = len;
+    #pragma omp simd
     #endif
     for (long i = 0; i < remainder; i++)
     {
@@ -916,15 +923,28 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
 
     Tb.resize(len);
 
-    const double* __restrict pfreq = frequency.data();
-    const double* __restrict ptbg = Tbg.data();
-    const double* __restrict ptau = tau.data();
-          double* __restrict ptb = Tb.data();
+    #pragma omp parallel
+    {
+    const int nthreads = omp_get_num_threads();
+    const int tid = omp_get_thread_num();
 
     #if defined(__AVX2__)
     const long vecsize = 4;
-    const auto maxit = len/vecsize;
-    const auto remainder = len - maxit*vecsize;
+    const long unrollfactor = 1;
+    const auto itlen = vecsize*unrollfactor;
+
+    const long offset = ((len/itlen) / nthreads)*itlen;
+    const long localoffset = offset*tid;
+
+    const double* __restrict pfreq = frequency.data()+localoffset;
+    const double* __restrict ptau = tau.data()+localoffset;
+    const double* __restrict ptbg = Tbg.data()+localoffset;
+          double* __restrict ptb = Tb.data()+localoffset;
+
+    const long ntodo = (tid == nthreads-1) ? len-localoffset : offset;
+    const long maxit = ntodo/itlen;
+    const long remainder = ntodo % itlen;
+
     const auto vtexinv = _mm256_set1_pd(texinv);
     const auto vscale = _mm256_set1_pd(scale);
     const auto vm1 = _mm256_set1_pd(-1.0);
@@ -943,19 +963,27 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
         j_t = _mm256_div_pd(temp1, j_t);
         j_tbg = _mm256_div_pd(temp1, j_tbg);
         auto res = _mm256_sub_pd(j_tbg, j_t);
-        res = _mm256_mul_pd(tau, temp1);
+        res = _mm256_mul_pd(res, tau);
         _mm256_store_pd(ptb, res);
-        pfreq += vecsize;
-        ptbg += vecsize;
-        ptau += vecsize;
-        ptb += vecsize;
+        pfreq += itlen;
+        ptbg  += itlen;
+        ptau  += itlen;
+        ptb   += itlen;
     }
     #elif defined(__ARM_NEON)
     const long vecsize = 2;
-    const long unrollfactor = 1;
+    const long unrollfactor = 4;
     const long itlen = vecsize*unrollfactor;
-    const auto maxit = len/itlen;
-    const auto remainder = len % itlen;
+
+    const long offset = ((len/itlen) / nthreads)*itlen;
+    const long localoffset = offset*tid;
+    const double* __restrict pfreq = frequency.data()+localoffset;
+    const double* __restrict ptau = tau.data()+localoffset;
+          double* __restrict ptb = Tb.data()+localoffset;
+
+    const long ntodo = (tid == nthreads-1) ? len-localoffset : offset;
+    const long maxit = ntodo/itlen;
+    const long remainder = ntodo % itlen;
     const auto vtexinv = vdupq_n_f64(texinv);
     const auto vscale = vdupq_n_f64(scale);
     const auto vm1 = vdupq_n_f64(-1.0);
@@ -977,12 +1005,14 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
         res = vmulq_f64(tau, res);
         vst1q_f64(ptb, res);
         pfreq += itlen;
-        ptbg += itlen;
-        ptau += itlen;
-        ptb += itlen;
+        ptbg  += itlen;
+        ptau  += itlen;
+        ptb   += itlen;
     }
     #else
-    const long remainder = len;
+    const long offset = len / nthreads;
+    const long localoffset = offset*tid;
+    const long remainder = (tid == nthreads-1) ? len-localoffset : offset;
     #endif
     for (long i = 0; i < remainder; i++)
     {
@@ -997,6 +1027,7 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
         ptbg++;
         ptau++;
         ptb++;
+    }
     }
 }
 
@@ -1014,23 +1045,27 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
 
     Tb.resize(len);
 
-
-
     #pragma omp parallel
     {
     const int nthreads = omp_get_num_threads();
-    const long offset = len / nthreads;
     const int tid = omp_get_thread_num();
-    const long localoffset = offset*tid;
-    const double* __restrict pfreq = frequency.data()+localoffset;
-    const double* __restrict ptau = tau.data()+localoffset;
-          double* __restrict ptb = Tb.data()+localoffset;
-          
 
     #if defined(__AVX2__)
     const long vecsize = 4;
-    const auto maxit = len/vecsize;
-    const auto remainder = len - maxit*vecsize;
+    const long unrollfactor = 1;
+    const auto itlen = vecsize*unrollfactor;
+
+    const long offset = ((len/itlen) / nthreads)*itlen;
+    const long localoffset = offset*tid;
+
+    const double* __restrict pfreq = frequency.data()+localoffset;
+    const double* __restrict ptau = tau.data()+localoffset;
+          double* __restrict ptb = Tb.data()+localoffset;
+
+    const long ntodo = (tid == nthreads-1) ? len-localoffset : offset;
+    const long maxit = ntodo/itlen;
+    const long remainder = ntodo % itlen;
+
     const auto vtexinv = _mm256_set1_pd(texinv);
     const auto vscale = _mm256_set1_pd(scale);
     const auto vm1 = _mm256_set1_pd(-1.0);
@@ -1051,14 +1086,21 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
         auto res = _mm256_sub_pd(j_tbg, j_t);
         res = _mm256_mul_pd(res, tau);
         _mm256_store_pd(ptb, res);
-        pfreq += vecsize;
-        ptau += vecsize;
-        ptb += vecsize;
+        pfreq += itlen;
+        ptau  += itlen;
+        ptb   += itlen;
     }
     #elif defined(__ARM_NEON)
     const long vecsize = 2;
     const long unrollfactor = 4;
     const long itlen = vecsize*unrollfactor;
+
+    const long offset = ((len/itlen) / nthreads)*itlen;
+    const long localoffset = offset*tid;
+    const double* __restrict pfreq = frequency.data()+localoffset;
+    const double* __restrict ptau = tau.data()+localoffset;
+          double* __restrict ptb = Tb.data()+localoffset;
+
     const long ntodo = (tid == nthreads-1) ? len-localoffset : offset;
     const long maxit = ntodo/itlen;
     const long remainder = ntodo % itlen;
@@ -1142,7 +1184,10 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
         ptb += itlen;
     }
     #else
-    const long remainder = len;
+    const long offset = len / nthreads;
+    const long localoffset = offset*tid;
+    const long remainder = (tid == nthreads-1) ? len-localoffset : offset;
+    #pragma omp simd
     #endif
     for (long i = 0; i < remainder; i++)
     {
@@ -1218,23 +1263,13 @@ void Simulation::make_lines()
 
         source.continuum.Tbg(spectrum.freq_profile, spectrum.Tbg_profile);
 
-        // if (doonce)
-        // {
-            make_gaussians(spectrum.frequency, spectrum.tau, l_idxs, u_idxs, source.dV, spectrum.freq_profile, spectrum.tau_profile);
-        //     doonce = false;
-        // }
+        make_gaussians(spectrum.frequency, spectrum.tau, l_idxs, u_idxs, source.dV, spectrum.freq_profile, spectrum.tau_profile);
 
-        // if (doonce)
-        // {
-            // Update int_profile, separate functions for constant thermal background
-            if (source.continuum.type == Continuum::thermal)
-                calc_Tb(spectrum.freq_profile, spectrum.tau_profile, source.continuum.params, source.Tex, spectrum.int_profile);
-            else
-                calc_Tb(spectrum.freq_profile, spectrum.tau_profile, spectrum.Tbg_profile, source.Tex, spectrum.int_profile);
-
-        //     doonce = false;
-        // }
-
+        if (source.continuum.type == Continuum::thermal)
+            calc_Tb(spectrum.freq_profile, spectrum.tau_profile, source.continuum.params, source.Tex, spectrum.int_profile);
+        else
+            calc_Tb(spectrum.freq_profile, spectrum.tau_profile, spectrum.Tbg_profile, source.Tex, spectrum.int_profile);
+    
         if(!use_obs)
         {
             l_idxs.clear();
@@ -1271,15 +1306,17 @@ void Simulation::make_gaussians(const AlignedVector<double>& centers, const Alig
             const double center = centers[n];
             const double int0 = int0s[n];
             const double scale2 = -1.0 / (scale1*center*center);
-            const double* __restrict px = x.data() + lls[n];
-                  double* __restrict py = y.data() + lls[n];
-                //   double* __restrict py = buffer[tid].data() + lls[n];
-            const auto len = uls[n] - lls[n];
 
             #if defined(__AVX2__)
             const long vecsize = 4;
+            const long alignedll = (lls[n]/vecsize)*vecsize;
+            const auto len = uls[n] - alignedll;
             const long maxit = len/vecsize;
             const long remainder = len % vecsize;
+
+            const double* __restrict px = x.data() + alignedll;
+                  double* __restrict py = y.data() + alignedll;
+
             auto vs = _mm256_set1_pd(scale2);
             auto vc = _mm256_set1_pd(center);
             auto va = _mm256_set1_pd(int0);
@@ -1298,6 +1335,8 @@ void Simulation::make_gaussians(const AlignedVector<double>& centers, const Alig
             }
             #elif defined(__ARM_NEON)
             const long vecsize = 2;
+            const long alignedll = (lls[n]/vecsize)*vecsize;
+            const long len = uls[n] - alignedll;
             const long unrollfac = 4;
             const long itlen = vecsize*unrollfac;
             const long maxit = len/itlen;
@@ -1305,6 +1344,10 @@ void Simulation::make_gaussians(const AlignedVector<double>& centers, const Alig
             auto vs = vdupq_n_f64(scale2);
             auto vc = vdupq_n_f64(center);
             auto va = vdupq_n_f64(int0);
+
+            const double* __restrict px = x.data() + alignedll;
+                  double* __restrict py = y.data() + alignedll;
+
             for (long i = 0; i < maxit; i++)
             {
                 auto vinc1 = vld1q_f64(px);
@@ -1350,7 +1393,9 @@ void Simulation::make_gaussians(const AlignedVector<double>& centers, const Alig
                 py += itlen;
             }
             #else
-            const long remainder = len;
+            const long remainder = uls[n] - lls[n];
+            const double* __restrict px = x.data() + lls[n];
+                  double* __restrict py = y.data() + lls[n];
             #pragma omp simd
             #endif
             for (long i = 0; i < remainder; i++)

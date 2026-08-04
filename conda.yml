@@ -23,6 +23,7 @@ dependencies:
   - loguru
   - h5netcdf
   - ruamel.yaml
+  - pybind11
   - pip:
     - emcee
     - lmfit

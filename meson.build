@@ -50,6 +50,7 @@ py.extension_module('molsim_cpp',
   cpp_args: ['-fopenmp', '-march=native'],
   subdir: 'molsim',
   install : true,
+  link_args: '-fopenmp'
 )
 
 # Install the Python package files
