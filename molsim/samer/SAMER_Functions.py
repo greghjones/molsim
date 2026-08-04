@@ -318,7 +318,7 @@ def calculate_tex(pixel, fitting_variables, exclusion=False):
 			tex_tbg = int_mean / num_transitions
 			#Calculate value for J(Tbg) using the mean frequency of the spw
 			nu = 1e6*np.mean(inp_freq[sw_l:sw_u])
-			jtbg = (h_cm*nu/k_cm)*(np.exp(h_cm*nu/(k_cm*continuum_values[i])) - 1. )**-1
+			jtbg = (h_cm*nu/k_cm)/np.expm1(h_cm*nu/(k_cm*continuum_values[i]))
 			#Combine previous values for J(Tex)
 			jtex = tex_tbg + jtbg
 			#Solve for Tex from previous value
@@ -382,7 +382,7 @@ def calculate_tex(pixel, fitting_variables, exclusion=False):
 			tex_tbg_masked = int_mean / num_transitions
 			#Calculate value for J(Tbg) using the mean frequency of the spw
 			nu = 1e6*np.mean(inp_freq[sw_l:sw_u])
-			jtbg_masked = (h_cm*nu/k_cm)*(np.exp(h_cm*nu/(k_cm*continuum_values[i])) - 1. )**-1
+			jtbg_masked = (h_cm*nu/k_cm)/np.expm1(h_cm*nu/(k_cm*continuum_values[i]))
 			#Combine previous values for J(Tex)
 			jtex_masked = tex_tbg_masked + jtbg_masked
 			#Solve for Tex from previous value
@@ -394,7 +394,7 @@ def calculate_tex(pixel, fitting_variables, exclusion=False):
 			const = h_cm*nu/k_cm
 			tbg = continuum_values[i]
 			#Derivative of J(Tbg) wrt Tbg multiplied by uncertainty in Tbg
-			sw_unc_jtbg = const**2*np.exp(const/tbg) / (tbg**2 * (np.exp(const/tbg)-1)**2 ) * 0.048 * nu*1e-9 / np.log( (3.92e-8 * (nu*1e-9)**3 * 0.26**2 / find_sigma_tbg(nu*1e-6,ll,ul)) + 1. )
+			sw_unc_jtbg = const**2*np.exp(const/tbg) / (tbg**2 * (np.expm1(const/tbg))**2 ) * 0.048 * nu*1e-9 / np.log( (3.92e-8 * (nu*1e-9)**3 * 0.26**2 / find_sigma_tbg(nu*1e-6,ll,ul)) + 1. )
 			jtbg_unc_list.append(sw_unc_jtbg)
 			
 			#Plug the previous two uncertainties for T_B and J(Tbg) into our expression for the uncertainty in Tex for this spectral window

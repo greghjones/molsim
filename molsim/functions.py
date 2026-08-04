@@ -127,7 +127,7 @@ def sum_spectra(sims,thin=True,Tex=None,Tbg=None,res=None,noise=None,override_fr
 			
 			#now we can do the actual conversion to Planck scale Jy/beam.  We can only operate on non-zero values.
 			mask = np.where(int_arr != 0)[0]
-			int_arr[mask] = (3.92E-8 * (freq_arr[mask]*1E-3)**3 *omega_arr[mask] / (np.exp(0.048*freq_arr[mask]*1E-3/int_arr[mask]) - 1))
+			int_arr[mask] = (3.92E-8 * (freq_arr[mask]*1E-3)**3 *omega_arr[mask] / (np.expm1(0.048*freq_arr[mask]*1E-3/int_arr[mask])))
 					
 		sum_spectrum.int_profile = int_arr
 			

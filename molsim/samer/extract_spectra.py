@@ -167,7 +167,7 @@ def greybodyIntensity(temperature, tau, frequency):
     for t in tau:
         mytau.append(t)
     tau = np.array(mytau, dtype=np.float64)
-    result = (1-np.exp(-tau)) * planckIntensity(temperature,frequency)
+    result = -np.expm1(-tau) * planckIntensity(temperature,frequency)
     return(result)
 
 def ispec(image, outfile=None, region='', sep=' ', format='%e',

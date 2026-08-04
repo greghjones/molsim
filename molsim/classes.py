@@ -1029,7 +1029,7 @@ class Continuum(object):
 		densities [Jy/sr] at those frequencies.
 		'''
 		
-		return 2*h*(freq*1E6)**3 / (cm**2 * (np.exp(h*freq*1E6/(k*self.Tbg(freq)))-1))*1E26		
+		return 2*h*(freq*1E6)**3 / (cm**2 * np.expm1(h*freq*1E6/(k*self.Tbg(freq))))*1E26		
 
 class Source(object):
 
@@ -1242,7 +1242,7 @@ class Simulation(object):
 		# calc_tau_accel implements the following in Fortran
 		# self.spectrum.tau = (np.log(2)**0.5 * (self.aij * cm**3 * (self.source.column * 100**2) *
 		# 						self.gup * (np.exp(-self.eup/self.source.Tex)) *
-		# 					 	(np.exp(h*self.spectrum.frequency*1E6/(k*self.source.Tex))-1)
+		# 					 	(np.expm1(h*self.spectrum.frequency*1E6/(k*self.source.Tex)))
 		# 					 )
 		# 					/
 		# 					(4*np.pi**1.5*(self.spectrum.frequency*1E6)**3 *
@@ -1273,8 +1273,7 @@ class Simulation(object):
 		
 	def _calc_Iv(self):
 		self.spectrum.Iv = ((2*h*self.spectrum.tau*(self.spectrum.frequency*1E6)**3)/
-							cm**2 * (np.exp(h*self.spectrum.frequency*1E6 /
-											(k*self.source.Tex)) -1 )
+							cm**2 * np.expm1(h*self.spectrum.frequency*1E6 / (k*self.source.Tex))
 							)*1E26
 		return
 
@@ -1289,15 +1288,11 @@ class Simulation(object):
 		an argument. This is so that the function can be njit'd.
 		'''
 
-		J_T = ((h*freq*10**6/k)*
-			(np.exp(((h*freq*10**6)/
-			(k*Tex))) -1)**-1
-			)
-		J_Tbg = ((h*freq*10**6/k)*
-			(np.exp(((h*freq*10**6)/
-			(k*Tbg))) -1)**-1
-			)			  
-		return (J_T - J_Tbg)*(1 - np.exp(-tau))
+		J_T =   (h*freq*10**6/k)/np.expm1((h*freq*10**6)/(k*Tex))
+
+		J_Tbg = (h*freq*10**6/k)/np.expm1((h*freq*10**6)/(k*Tbg))
+
+		return (J_Tbg - J_T)*np.expm1(-tau)
 		
 	def _beam_correct(self):
 		if self.observation is not None:
@@ -1389,9 +1384,9 @@ class Simulation(object):
 			omega = self.observation.observatory.synth_beam[0]*self.observation.observatory.synth_beam[1] #conversion below has volume element built in
 			if self.line_profile.lower() in ['gaussian','gauss']:
 				mask = np.where(self.spectrum.int_profile != 0)[0]
-				self.spectrum.int_profile[mask] = (3.92E-8 * (self.spectrum.freq_profile[mask]*1E-3)**3 *omega/ (np.exp(0.048*self.spectrum.freq_profile[mask]*1E-3/self.spectrum.int_profile[mask]) - 1))
+				self.spectrum.int_profile[mask] = (3.92E-8 * (self.spectrum.freq_profile[mask]*1E-3)**3 *omega/ np.expm1(0.048*self.spectrum.freq_profile[mask]*1E-3/self.spectrum.int_profile[mask]))
 			mask = np.where(self.spectrum.Tb != 0)[0]
-			self.spectrum.Tb[mask] = (3.92E-8 * (self.spectrum.frequency[mask]*1E-3)**3 *omega/ (np.exp(0.048*self.spectrum.frequency[mask]*1E-3/self.spectrum.Tb[mask]) - 1))
+			self.spectrum.Tb[mask] = (3.92E-8 * (self.spectrum.frequency[mask]*1E-3)**3 *omega/ np.expm1(0.048*self.spectrum.frequency[mask]*1E-3/self.spectrum.Tb[mask]))
 			return
 			
 	

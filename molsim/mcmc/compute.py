@@ -99,7 +99,7 @@ def calculate_tau(
     tau = (
         linestrength[mask] * cm ** 3 * (Ncol * 100**2) * gup[mask]
         * (np.exp(-eup[mask] / Tex))
-        * (np.exp(h * frequency[mask] * 1e6 / (k * Tex)) - 1)
+        * np.expm1(h * frequency[mask] * 1e6 / (k * Tex))
     ) / (8 * np.pi * (frequency[mask] * 1e6) ** 3 * dV * 1000 * Q)
     return tau
 
@@ -134,7 +134,7 @@ def calculate_Iv(tau: np.ndarray, frequency: np.ndarray, Tex: float) -> np.ndarr
     Iv = (
         (2 * h * tau * (frequency * 1e6) ** 3)
         / cm ** 2
-        * (np.exp(h * frequency * 1e6 / (k * Tex)) - 1)
+        * np.expm1(h * frequency * 1e6 / (k * Tex))
     ) * 1e26
     return Iv
 
@@ -157,13 +157,9 @@ def continuum_tau_correction(
     Tex : float
         [description]
     """
-    J_T = (h * frequency * 1e6 / k) * (
-        np.exp(((h * frequency * 1e6) / (k * Tex))) - 1
-    ) ** -1
-    J_Tbg = (h * frequency * 1e6 / k) * (
-        np.exp(((h * frequency * 1e6) / (k * Tbg))) - 1
-    ) ** -1
-    return (J_T - J_Tbg) * (1 - np.exp(-tau))
+    J_T =   (h * frequency * 1e6 / k) / np.expm1(((h * frequency * 1e6) / (k * Tex)))
+    J_Tbg = (h * frequency * 1e6 / k) / np.expm1(((h * frequency * 1e6) / (k * Tbg)))
+    return (J_Tbg - J_T) * np.expm1(-tau)
 
 
 def atomic_gaussian(
