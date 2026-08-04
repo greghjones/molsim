@@ -32,22 +32,29 @@ subroutine calc_tb(freq_profile, tau_profile, tbg_profile, tex, h, k, tb_profile
 
     double precision texv, scale, temp1, j_t, j_tbg
 
+    interface
+        real(c_double) function expm1(x) bind(c, name='expm1')
+            use, intrinsic :: iso_c_binding, only: c_double
+            real(c_double), intent(in), value :: x
+        end function expm1
+    end interface
+
     scale = h*1.0d6/k
 
     if(texlength.eq.1)then
         texv = 1.0d0/tex(1)
         do i=1,profilelength
             temp1 = scale*freq_profile(i)
-            j_t   = temp1 / (exp(texv*temp1)           - 1.0d0)
-            j_tbg = temp1 / (exp(temp1/tbg_profile(i)) - 1.0d0)
-            tb_profile(i) = (j_t - j_tbg)*(1.0d0 - exp(-tau_profile(i)))
+            j_t   = temp1 / expm1(texv*temp1)
+            j_tbg = temp1 / expm1(temp1/tbg_profile(i))
+            tb_profile(i) = (j_tbg - j_t)*expm1(-tau_profile(i))
         enddo
     else
         do i=1,profilelength
             temp1 = scale*freq_profile(i)
-            j_t   = temp1 / (exp(temp1/tex(i))         - 1.0d0)
-            j_tbg = temp1 / (exp(temp1/tbg_profile(i)) - 1.0d0)
-            tb_profile(i) = (j_t - j_tbg)*(1.0d0 - exp(-tau_profile(i)))
+            j_t   = temp1 / expm1(temp1/tex(i))
+            j_tbg = temp1 / expm1(temp1/tbg_profile(i))
+            tb_profile(i) = (j_tbg - j_t)*expm1(-tau_profile(i))
         enddo
     endif
 
@@ -64,16 +71,25 @@ subroutine calc_tau(aij, gup, eup, frequencies, columndensity, tex, dV, q, h, k,
 
     double precision :: prefactor, texinv, boltzmannscale
     double precision :: invfcubed(ntransitions), exp1(ntransitions), exp2(ntransitions)
+    integer*8 i
+
+    interface
+        real(c_double) function expm1(x) bind(c, name='expm1')
+            use, intrinsic :: iso_c_binding, only: c_double
+            real(c_double), intent(in), value :: x
+        end function expm1
+    end interface
 
     texinv = -1.0d0/tex
     boltzmannscale = h*1.0d6/(k*tex)
     prefactor = log(2.0d0)**0.5d0 * cm*cm*cm * (columndensity * 100.0d0*100.0d0) / (4*pi**1.5d0 * 1.0d18 * dV*1000.0d0 * q)
 
     exp1 = exp(texinv*eup)
-    exp2 = exp(boltzmannscale*frequencies) - 1.0d0
+    do i = 1,ntransitions
+        exp2(i) = expm1(boltzmannscale*frequencies(i))
+    enddo
     invfcubed = prefactor / (frequencies*frequencies*frequencies)
 
     tau = aij*gup*exp1*exp2*invfcubed
 
 end subroutine calc_tau
-
