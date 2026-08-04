@@ -49,5 +49,14 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
         .def_property("spectrum", [](const Simulation& s){ return s.spectrum; }, nullptr);
 
     py::class_<Spectrum>(m, "Spectrum")
-        .def_property("int_profile", [](const Spectrum& s){ return py::array_t<double>(s.int_profile.size(), s.int_profile.data());  }, nullptr);
+        .def_property("freq0",        [](const Spectrum& s){ return py::array_t<double>(s.freq0.size(),        s.freq0.data());         }, nullptr)
+        .def_property("frequency",    [](const Spectrum& s){ return py::array_t<double>(s.frequency.size(),    s.frequency.data());     }, nullptr)
+        .def_property("tau",          [](const Spectrum& s){ return py::array_t<double>(s.tau.size(),          s.tau.data());           }, nullptr)
+        .def_property("Ibg",          [](const Spectrum& s){ return py::array_t<double>(s.Ibg.size(),          s.Ibg.data());           }, nullptr)
+        .def_property("Tbg",          [](const Spectrum& s){ return py::array_t<double>(s.Tbg.size(),          s.Tbg.data());           }, nullptr)
+        .def_property("Tb",           [](const Spectrum& s){ return py::array_t<double>(s.Tb.size(),           s.Tb.data());            }, nullptr)
+        .def_property("freq_profile", [](const Spectrum& s){ return py::array_t<double>(s.freq_profile.size(), s.freq_profile.data());  }, nullptr)
+        .def_property("Tbg_profile",  [](const Spectrum& s){ return py::array_t<double>(s.Tbg_profile.size(),  s.Tbg_profile.data());   }, nullptr)
+        .def_property("tau_profile",  [](const Spectrum& s){ return py::array_t<double>(s.tau_profile.size(),  s.tau_profile.data());   }, nullptr)
+        .def_property("int_profile",  [](const Spectrum& s){ return py::array_t<double>(s.int_profile.size(),  s.int_profile.data());   }, nullptr);
 }
