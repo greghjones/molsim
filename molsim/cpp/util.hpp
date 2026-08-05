@@ -4,6 +4,9 @@
 #include <cstddef>
 #include <initializer_list>
 #include <stdlib.h>
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
 #include <vector>
 #include <print>
 
@@ -14,6 +17,8 @@
 #define MOLSIM_ALIGN 512
 #elif defined(__ARM_NEON) || defined(__AVX2__)
 #define MOLSIM_ALIGN 256
+#else
+#define MOLSIM_ALIGN 128
 #endif
 
 #define ERROR(...) \
@@ -36,6 +41,7 @@ class AlignedAllocator
 
         constexpr AlignedAllocator(const AlignedAllocator&) noexcept {}
 
+        #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
         [[nodiscard]] T* allocate(size_type n)
         {
             void* allocation = nullptr;
@@ -48,11 +54,32 @@ class AlignedAllocator
             else
                 throw std::bad_alloc();
         }
+        #elif defined(_WIN32)
+        [[nodiscard]] T* allocate(size_type n)
+        {
+            void* allocation = nullptr;
+            if (n > std::allocator_traits<AlignedAllocator>::max_size(*this))
+                throw std::bad_alloc();
+            static_assert(AlignedAs % sizeof(void *) == 0);
+            allocation = _aligned_malloc(n*sizeof(T), AlignedAs);
+            if (allocation)
+                return static_cast<T*>(allocation);
+            else
+                throw std::bad_alloc();
+        }
+        #endif
 
+        #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
         void deallocate(T* p, std::size_t) noexcept
         {
             std::free(p);
         }
+        #elif defined(_WIN32)
+        void deallocate(T* p, std::size_t) noexcept
+        {
+            _aligned_free(p);
+        }
+        #endif
 
         template<typename _Tp1>
         struct rebind { typedef AlignedAllocator<_Tp1, AlignedAs> other; };
@@ -60,10 +87,10 @@ class AlignedAllocator
 };
 
 template <class T, size_t Tsize, class U, size_t Usize>
-bool operator==(const AlignedAllocator<T, Tsize>& a, const AlignedAllocator<U, Usize>& b) { return true; }
+bool operator==(const AlignedAllocator<T, Tsize>&, const AlignedAllocator<U, Usize>&) { return true; }
 
 template <class T, size_t Tsize, class U, size_t Usize>
-bool operator!=(const AlignedAllocator<T, Tsize>& a, const AlignedAllocator<U, Usize>& b) { return false; }
+bool operator!=(const AlignedAllocator<T, Tsize>&, const AlignedAllocator<U, Usize>&) { return false; }
 
 template <typename T>
 class AlignedVector

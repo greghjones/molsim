@@ -5,7 +5,13 @@
 #include <vector>
 #include <cstdint>
 
+#ifdef _OPENMP
 #include <omp.h>
+#else
+    // Fallback for sequential execution
+    #define omp_get_thread_num() 0
+    #define omp_get_num_threads() 1
+#endif
 
 #include "pybind11/pytypes.h"
 
