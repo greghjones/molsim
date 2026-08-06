@@ -40,6 +40,15 @@ elif cppcompiler.get_argument_syntax() == 'msvc'
   endif
 endif
 
+# Check for presence of std::print
+printcode = '''#include <print>
+void f() { std::print("Hello world"); }
+'''
+
+printsupport = cppcompiler.compiles(printcode, name: 'C++ compiler supports std::print')
+
+assert(printsupport, 'C++ compiler does not support std::print (too old)')
+
 py = import('python').find_installation(pure: false)
 
 # NumPy >=2.0 provides include dirs via dependency()
