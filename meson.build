@@ -59,7 +59,7 @@ f2py_dep = declare_dependency(
 
 # Generate the f2py wrappers
 fort_accel_source = custom_target('fortran_accelmodule.c',
-  input : ['molsim/interface.pyf', 'molsim/fort_funcs.f90'],
+  input : ['molsim/interface.pyf'],
   output : ['fortran_accelmodule.c', 'fortran_accel-f2pywrappers.f'],
   command : [py, '-m', 'numpy.f2py', '@INPUT@']
 )

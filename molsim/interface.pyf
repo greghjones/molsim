@@ -1,23 +1,49 @@
-python module fortran_accel
-    interface
-        subroutine make_gauss(centers, taus, l_idxs, u_idxs, freq_profile, tau_profile, npeaks, profilelength, dV, ckm)
-            integer*8, intent(in) :: npeaks, profilelength
-            double precision, intent(in) :: dV, ckm
-            integer*8, intent(in) :: l_idxs(npeaks), u_idxs(npeaks)
-            double precision, intent(in) :: centers(npeaks), taus(npeaks), freq_profile(profilelength)
-            double precision, intent(out) :: tau_profile(profilelength)
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module fortran_accel ! in 
+    interface  ! in :fortran_accel
+        subroutine make_gauss(centers,taus,l_idxs,u_idxs,freq_profile,tau_profile,npeaks,profilelength,dv,ckm) ! in :fortran_accel:fort_funcs.f90
+            real(kind=8) dimension(npeaks),intent(in) :: centers
+            real(kind=8) dimension(npeaks),intent(in),depend(npeaks) :: taus
+            integer(kind=8) dimension(npeaks),intent(in),depend(npeaks) :: l_idxs
+            integer(kind=8) dimension(npeaks),intent(in),depend(npeaks) :: u_idxs
+            real(kind=8) dimension(profilelength),intent(in) :: freq_profile
+            real(kind=8) dimension(profilelength),intent(out),depend(profilelength) :: tau_profile
+            integer(kind=8), optional,intent(in),check(shape(centers, 0) == npeaks),depend(centers) :: npeaks=shape(centers, 0)
+            integer(kind=8), optional,intent(in),check(shape(freq_profile, 0) == profilelength),depend(freq_profile) :: profilelength=shape(freq_profile, 0)
+            real(kind=8) intent(in) :: dv
+            real(kind=8) intent(in) :: ckm
         end subroutine make_gauss
-        subroutine calc_tb(freq_profile, tau_profile, tbg_profile, tex, h, k, tb_profile, profilelength, texlength)
-            integer*8, intent(in) :: profilelength, texlength
-            double precision, intent(in) :: h, k
-            double precision, intent(in) :: freq_profile(profilelength), tau_profile(profilelength), tbg_profile(profilelength), tex(texlength)
-            double precision, intent(out) :: tb_profile(profilelength)
-        end subroutine calc_Tb
-        subroutine calc_tau(aij, gup, eup, frequencies, columndensity, tex, dV, q, h, k, cm, tau, ntransitions)
-            implicit none
-            integer*8, intent(in) :: ntransitions
-            double precision, intent(in) :: columndensity, tex, dV, q, h, k, cm
-            double precision, intent(in) :: aij(ntransitions), gup(ntransitions), eup(ntransitions), frequencies(ntransitions)
-            double precision, intent(out) :: tau(ntransitions)
+        subroutine calc_tb(freq_profile,tau_profile,tbg_profile,tex,h,k,tb_profile,profilelength,texlength) ! in :fortran_accel:fort_funcs.f90
+            real(kind=8) dimension(profilelength),intent(in) :: freq_profile
+            real(kind=8) dimension(profilelength),intent(in),depend(profilelength) :: tau_profile
+            real(kind=8) dimension(profilelength),intent(in),depend(profilelength) :: tbg_profile
+            real(kind=8) dimension(texlength),intent(in) :: tex
+            real(kind=8) intent(in) :: h
+            real(kind=8) intent(in) :: k
+            real(kind=8) dimension(profilelength),intent(out),depend(profilelength) :: tb_profile
+            integer(kind=8), optional,intent(in),check(shape(freq_profile, 0) == profilelength),depend(freq_profile) :: profilelength=shape(freq_profile, 0)
+            integer(kind=8), optional,intent(in),check(shape(tex, 0) == texlength),depend(tex) :: texlength=shape(tex, 0)
+        end subroutine calc_tb
+        subroutine calc_tau(aij,gup,eup,frequencies,columndensity,tex,dv,q,h,k,cm,tau,ntransitions) ! in :fortran_accel:fort_funcs.f90
+            real(kind=8) dimension(ntransitions),intent(in) :: aij
+            real(kind=8) dimension(ntransitions),intent(in),depend(ntransitions) :: gup
+            real(kind=8) dimension(ntransitions),intent(in),depend(ntransitions) :: eup
+            real(kind=8) dimension(ntransitions),intent(in),depend(ntransitions) :: frequencies
+            real(kind=8) intent(in) :: columndensity
+            real(kind=8) intent(in) :: tex
+            real(kind=8) intent(in) :: dv
+            real(kind=8) intent(in) :: q
+            real(kind=8) intent(in) :: h
+            real(kind=8) intent(in) :: k
+            real(kind=8) intent(in) :: cm
+            real(kind=8) dimension(ntransitions),intent(out),depend(ntransitions) :: tau
+            integer(kind=8), optional,intent(in),check(shape(aij, 0) == ntransitions),depend(aij) :: ntransitions=shape(aij, 0)
         end subroutine calc_tau
+    end interface 
 end python module fortran_accel
+
+! This file was auto-generated with f2py (version:2.4.6).
+! See:
+! https://web.archive.org/web/20140822061353/http://cens.ioc.ee/projects/f2py2e
