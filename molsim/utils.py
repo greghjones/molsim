@@ -16,6 +16,8 @@ from subprocess import Popen, PIPE, TimeoutExpired
 from tempfile import NamedTemporaryFile
 from shutil import copy2, which
 
+from molsim.constants import fwhm_to_sigma
+
 
 def load_yaml(yml_path: str) -> dict:
     with open(yml_path, "r") as read_file:
@@ -68,7 +70,7 @@ def _trim_arr(arr,lls,uls,key_arr=None,return_idxs=False,ll_idxs=None,ul_idxs=No
 
 @njit
 def _make_gauss(freq0,int0,freq,dV,ckm):
-	return int0*np.exp(-((freq-freq0)**2/(2*((dV*freq0/ckm)/2.35482)**2)))
+	return int0*np.exp(-((freq-freq0)**2/(2*((dV*freq0/ckm)*fwhm_to_sigma)**2)))
 
 def _make_level_dict(qn1low,qn2low,qn3low,qn4low,qn5low,qn6low,qn7low,qn8low,qn1up,qn2up,
 					qn3up,qn4up,qn5up,qn6up,qn7up,qn8up,frequency,elow,gup,

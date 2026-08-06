@@ -1302,7 +1302,7 @@ void Simulation::make_gaussians(const AlignedVector<double>& centers, const Alig
     assert(lls.size() == npeaks);
     assert(uls.size() == npeaks);
 
-    const double scale1 = 2*(dV/ckm/2.35482)*(dV/ckm/2.35482);
+    const double scale1 = 2*(dV/ckm*fwhm_to_sigma)*(dV/ckm*fwhm_to_sigma);
 
     // const int nthreads = omp_get_num_threads();
 

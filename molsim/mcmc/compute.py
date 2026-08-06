@@ -7,7 +7,7 @@ from numba import jit, njit, prange, config
 from tqdm.auto import tqdm
 
 from molsim.classes import Catalog
-from molsim.constants import cm, kcm, ccm, h, k, ckm
+from molsim.constants import cm, kcm, ccm, h, k, ckm, fwhm_to_sigma
 from molsim import utils
 
 
@@ -176,7 +176,7 @@ def atomic_gaussian(
 
 @njit
 def neu_gaussian(x, x0, A, dV):
-    return A * np.exp(-(x - x0)**2. / (2*((dV*x0/ckm)/2.35482)**2))
+    return A * np.exp(-(x - x0)**2. / (2*((dV*x0/ckm)*fwhm_to_sigma)**2))
 
 
 def beam_correction(

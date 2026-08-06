@@ -14,8 +14,9 @@ subroutine make_gauss(centers, taus, l_idxs, u_idxs, freq_profile, tau_profile, 
     real(dp) scale1, scale2, f0
 
     real(dp), parameter :: two = 2.0_dp
+    real(dp), parameter :: sigma_to_fwhm = two*sqrt(two * log(two))
 
-    scale1 = two*(dV/ckm/2.35482_dp)**two
+    scale1 = two*(dV/ckm/sigma_to_fwhm)**two
 
     do i=1,npeaks
         ll = l_idxs(i)

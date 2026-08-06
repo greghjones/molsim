@@ -13,6 +13,7 @@ from molsim.utils import _trim_arr, find_nearest, _make_gauss, _apply_vlsr, find
 from molsim.classes import Workspace, Catalog, Transition, Level, Molecule, PartitionFunction, Spectrum, Simulation, Continuum, Source, Observatory, Observation, Iplot, Trace
 from molsim.functions import sum_spectra, velocity_stack, matched_filter, convert_spcat, resample_obs
 from molsim.stats import get_rms
+from molsim.constants import fwhm_to_sigma
 import json
 import time
 from astropy.io import fits
@@ -453,7 +454,7 @@ def calculate_dV(pixel, fitting_variables):
 		fwhm_mhz = fwhm*x/2.998e5
 		
 		#Calculate the standard deviation from the FWHM using standard conversion factor
-		wid = fwhm_mhz/2.35482
+		wid = fwhm_mhz*fwhm_to_sigma
 		
 		model = (amp / (np.sqrt(2*np.pi) * wid)) * np.exp(-(x-cen)**2 / (2*wid**2))
 		
