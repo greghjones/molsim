@@ -9,15 +9,16 @@ add_languages('cpp', native: false)
 
 cppcompiler = meson.get_compiler('cpp')
 cppargs = []
+cpplinkargs = []
 fortargs = []
 
 if cppcompiler.get_argument_syntax() == 'gcc'
 
   # Apple clang doesn't support OpenMP threading
   if cppcompiler.has_argument('-fopenmp')
-    openmpflag = '-fopenmp'
+    cppargs += '-fopenmp'
+    cpplinkargs += '-fopenmp'
   else
-    openmpflag = ''
     warning('Your compiler (likely Apple clang) does not support OpenMP threading. Parallelism will be disabled.')
   endif
 
@@ -26,19 +27,17 @@ if cppcompiler.get_argument_syntax() == 'gcc'
   # heterogeneous clusters
   cpufam = host_machine.cpu_family()
   if cpufam == 'x86_64'
-    archflag = '-march=native -mtune=native'
+    cppargs  += ['-march=native', '-mtune=native']
+    fortargs += ['-march=native', '-mtune=native']
   elif cpufam == 'aarch64'
-    archflag = '-mcpu=native'
+    cppargs += '-mcpu=native'
   endif
 elif cppcompiler.get_argument_syntax() == 'msvc'
-  if cppcompiler.has_argument('/openmp')
-    openmpflag = '/openmp'
+  if cppcompiler.has_argument('/openmp:experimental')
+    cppargs += '/openmp:experimental'
   else
-    openmpflag = ''
     warning('Your compiler does not support OpenMP threading. Parallelism will be disabled.')
   endif
-
-  archflag = '' # MSVC doesn't have a "native" equivalent
 endif
 
 py = import('python').find_installation(pure: false)
@@ -67,7 +66,7 @@ fort_accel_source = custom_target('fortran_accelmodule.c',
 py.extension_module('fortran_accel',
   ['molsim/fort_funcs.f90', fort_accel_source, incdir_f2py / 'fortranobject.c'],
   dependencies : [np_dep, f2py_dep],
-  fortran_args : archflag,
+  fortran_args : fortargs,
   subdir: 'molsim',
   install : true,
 )
@@ -81,10 +80,10 @@ sleef_dep = declare_dependency(
 py.extension_module('molsim_cpp',
   ['molsim/cpp/classes.cxx', 'molsim/cpp/binding.cxx'],
   dependencies : [np_dep, sleef_dep, pybind11_dep],
-  cpp_args: [openmpflag, archflag],
+  cpp_args: cppargs,
   subdir: 'molsim',
   install : true,
-  link_args: openmpflag
+  link_args: cpplinkargs
 )
 
 # Install the Python package files
