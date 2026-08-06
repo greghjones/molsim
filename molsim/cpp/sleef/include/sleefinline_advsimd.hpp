@@ -1164,7 +1164,7 @@ typedef struct {
 
 typedef vquad_advsimd_sleef vargquad_advsimd_sleef;
 
-static SLEEF_ALWAYS_INLINE int vavailability_i_advsimd_sleef(int name) { return 3; }
+static SLEEF_ALWAYS_INLINE int vavailability_i_advsimd_sleef(int) { return 3; }
 
 static SLEEF_ALWAYS_INLINE int vtestallones_i_vo32_advsimd_sleef(vopmask_advsimd_sleef g) {
   uint32x2_t x0 = vand_u32(vget_low_u32(g), vget_high_u32(g));
@@ -1662,8 +1662,8 @@ static SLEEF_ALWAYS_INLINE vdouble_advsimd_sleef vrev21_vd_vd_advsimd_sleef(vdou
 static SLEEF_ALWAYS_INLINE vdouble_advsimd_sleef vreva2_vd_vd_advsimd_sleef(vdouble_advsimd_sleef vd_advsimd_sleef) { return vd_advsimd_sleef; }
 
 static SLEEF_ALWAYS_INLINE void vstream_v_p_vd_advsimd_sleef(double *ptr, vdouble_advsimd_sleef v) { vstore_v_p_vd_advsimd_sleef(ptr, v); }
-static SLEEF_ALWAYS_INLINE void vscatter2_v_p_i_i_vd_advsimd_sleef(double *ptr, int offset, int step, vdouble_advsimd_sleef v) { vstore_v_p_vd_advsimd_sleef((double *)(&ptr[2*offset]), v); }
-static SLEEF_ALWAYS_INLINE void vsscatter2_v_p_i_i_vd_advsimd_sleef(double *ptr, int offset, int step, vdouble_advsimd_sleef v) { vstore_v_p_vd_advsimd_sleef((double *)(&ptr[2*offset]), v); }
+static SLEEF_ALWAYS_INLINE void vscatter2_v_p_i_i_vd_advsimd_sleef(double *ptr, int offset, int, vdouble_advsimd_sleef v) { vstore_v_p_vd_advsimd_sleef((double *)(&ptr[2*offset]), v); }
+static SLEEF_ALWAYS_INLINE void vsscatter2_v_p_i_i_vd_advsimd_sleef(double *ptr, int offset, int, vdouble_advsimd_sleef v) { vstore_v_p_vd_advsimd_sleef((double *)(&ptr[2*offset]), v); }
 
 static SLEEF_ALWAYS_INLINE vfloat_advsimd_sleef vrev21_vf_vf_advsimd_sleef(vfloat_advsimd_sleef d0) { return vrev64q_f32(d0); }
 static SLEEF_ALWAYS_INLINE vfloat_advsimd_sleef vreva2_vf_vf_advsimd_sleef(vfloat_advsimd_sleef d0) { return vcombine_f32(vget_high_f32(d0), vget_low_f32(d0)); }
@@ -1680,11 +1680,11 @@ static SLEEF_ALWAYS_INLINE void vsscatter2_v_p_i_i_vf_advsimd_sleef(float *ptr, 
   vst1_f32((float *)(ptr+(offset + step * 1)*2), vget_high_f32(v));
 }
 
-static vquad_advsimd_sleef loadu_vq_p_advsimd_sleef(void *p) {
-  vquad_advsimd_sleef vq;
-  memcpy(&vq, p, (1 << 1) * 16);
-  return vq;
-}
+// static vquad_advsimd_sleef loadu_vq_p_advsimd_sleef(void *p) {
+//   vquad_advsimd_sleef vq;
+//   memcpy(&vq, p, (1 << 1) * 16);
+//   return vq;
+// }
 
 static SLEEF_ALWAYS_INLINE vquad_advsimd_sleef cast_vq_aq_advsimd_sleef(vargquad_advsimd_sleef aq) {
   vquad_advsimd_sleef vq;
@@ -6578,7 +6578,7 @@ SLEEF_INLINE SLEEF_CONST vfloat_advsimd_sleef Sleef_frfrexpf4_advsimd(vfloat_adv
   return ret;
 }
 
-SLEEF_INLINE SLEEF_CONST vint2_advsimd_sleef Sleef_expfrexpf4_advsimd(vfloat_advsimd_sleef x) {
+SLEEF_INLINE SLEEF_CONST vint2_advsimd_sleef Sleef_expfrexpf4_advsimd(vfloat_advsimd_sleef) {
 
   return vcast_vi2_i_advsimd_sleef(0);
 }
