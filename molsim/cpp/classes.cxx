@@ -724,7 +724,7 @@ Simulation::Simulation(const py::object& spectrum_py,
     if (source.continuum.type == Continuum::thermal)
         calc_Tb(spectrum.frequency, spectrum.tau, source.continuum.params, source.Tex, spectrum.Tb);
     else
-    calc_Tb(spectrum.frequency, spectrum.tau, spectrum.Tbg, source.Tex, spectrum.Tb);
+        calc_Tb(spectrum.frequency, spectrum.tau, spectrum.Tbg, source.Tex, spectrum.Tb);
     make_lines();
     beam_correct();
     set_units();
@@ -985,6 +985,7 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
     const long localoffset = offset*tid;
     const double* __restrict pfreq = frequency.data()+localoffset;
     const double* __restrict ptau = tau.data()+localoffset;
+    const double* __restrict ptbg = Tbg.data()+localoffset;
           double* __restrict ptb = Tb.data()+localoffset;
 
     const long ntodo = (tid == nthreads-1) ? len-localoffset : offset;
@@ -1019,6 +1020,10 @@ void Simulation::calc_Tb(const AlignedVector<double> frequency,
     const long offset = len / nthreads;
     const long localoffset = offset*tid;
     const long remainder = (tid == nthreads-1) ? len-localoffset : offset;
+    const double* __restrict pfreq = frequency.data()+localoffset;
+    const double* __restrict ptau = tau.data()+localoffset;
+    const double* __restrict ptbg = Tbg.data()+localoffset;
+          double* __restrict ptb = Tb.data()+localoffset;
     #endif
     for (long i = 0; i < remainder; i++)
     {
