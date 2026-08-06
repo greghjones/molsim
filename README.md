@@ -39,9 +39,13 @@ For developers/testers, you should make a fork of this repository, and make chan
 
 followed by:
 
-`pip install -e .\[dev\]`
+`pip install meson-python ninja`
 
-The backslashes are required to escape the `[]` characters for `zsh`, although you may not have that issue on other shells/OS'. This will install `molsim` as a softlink so that changes are updated on the fly, while the `[dev]` option installs additional packages such as `pytest`, and `black` for formatting.
+further followed by:
+
+`pip install --no-build-isolation -e '.[dev]'`
+
+This will install `molsim` as a softlink so that changes are updated on the fly (including recompilation of Fortran and C++ code), while the `[dev]` option installs additional packages such as `pytest`, and `black` for formatting.
 
 ### Use with notebook environments
 

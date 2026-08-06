@@ -1,3 +1,4 @@
 Kin Long Kelvin Lee - MCMC Backend
 Brett McGuire - Line simulations and original molsim
 Ryan A. Loomis - MCMC framework design and assistance streamlining original simulate_lte code
+Greg Jones - Fortran and C++ acceleration/Packaging
