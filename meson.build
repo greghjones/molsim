@@ -84,7 +84,7 @@ py.extension_module('molsim_cpp',
   cpp_args: [openmpflag, archflag],
   subdir: 'molsim',
   install : true,
-  link_args: '-fopenmp'
+  link_args: openmpflag
 )
 
 # Install the Python package files
