@@ -43,7 +43,7 @@ endif
 py = import('python').find_installation(pure: false)
 
 # NumPy >=2.0 provides include dirs via dependency()
-np_dep = dependency('numpy')
+np_dep = dependency('numpy', method: 'config-tool')
 
 incdir_f2py = run_command(py,
   ['-c', 'import numpy.f2py; print(numpy.f2py.get_include())'],
