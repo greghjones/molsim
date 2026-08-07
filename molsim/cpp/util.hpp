@@ -39,7 +39,8 @@ class AlignedAllocator
 
         AlignedAllocator() = default;
 
-        constexpr AlignedAllocator(const AlignedAllocator&) noexcept {}
+        template<typename U>
+        constexpr AlignedAllocator(const AlignedAllocator<U,AlignedAs>&) noexcept {}
 
         #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
         [[nodiscard]] T* allocate(size_type n)
