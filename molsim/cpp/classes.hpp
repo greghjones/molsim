@@ -244,24 +244,11 @@ class Simulation
         void set_arrays();
         void calc_bg();
         void calc_Iv() { };
-        void calc_Tb(const AlignedVector<double> frequency,
-                     const AlignedVector<double>& tau,
-                     const AlignedVector<double>& Tbg,
-                     double Tex,
-                           AlignedVector<double>& Tb);
-        void calc_Tb(const AlignedVector<double> frequency,
-                     const AlignedVector<double>& tau,
-                     const double Tbg,
-                     const double Tex,
-                           AlignedVector<double>& Tb);
         void apply_eta();
         void add_noise() { };
-        void make_gaussians(const AlignedVector<double>& centers, const AlignedVector<double>& int0s,
-                            const AlignedVector<long>& lls, const AlignedVector<long>& uls, double dV,
-                            const AlignedVector<double>& x, AlignedVector<double>& y);
 
-        AlignedVector<long> l_idxs;
-        AlignedVector<long> u_idxs;
+        AlignedVector<ssize_t> l_idxs;
+        AlignedVector<ssize_t> u_idxs;
         bool doonce = true;
 };
 

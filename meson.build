@@ -7,36 +7,53 @@ project('molsim_accel', 'c',
 add_languages('fortran', native: false)
 add_languages('cpp', native: false)
 
+conf_data = configuration_data()
+
 cppcompiler = meson.get_compiler('cpp')
 cppargs = []
 cpplinkargs = []
 fortargs = []
 
+nativebuild = true
+
+cpufam = host_machine.cpu_family()
+
 if cppcompiler.get_argument_syntax() == 'gcc'
+
+  avx2march = '-march=x86-64-v3'
+  avx512march = '-march=x86-64-v4'
 
   # Apple clang doesn't support OpenMP threading
   if cppcompiler.has_argument('-fopenmp')
     cppargs += '-fopenmp'
     cpplinkargs += '-fopenmp'
   else
-    warning('Your compiler (likely Apple clang) does not support OpenMP threading. Parallelism will be disabled.')
+    warning('Your compiler (likely Apple clang) does not support OpenMP. Parallelism will be disabled.')
   endif
 
   # Determine appropriate compiler flags for machine
   # This is very "laptop" focused, and needs some changes for
   # heterogeneous clusters
-  cpufam = host_machine.cpu_family()
+
   if cpufam == 'x86_64'
-    cppargs  += ['-march=native', '-mtune=native']
-    fortargs += ['-march=native', '-mtune=native']
+    if nativebuild
+      cppargs  += ['-march=native', '-mtune=native']
+      fortargs += ['-march=native', '-mtune=native']
+    endif
+    conf_data.set('MOLSIM_X86_64', true)
   elif cpufam == 'aarch64'
-    cppargs += '-mcpu=native'
+    if nativebuild
+      cppargs += '-mcpu=native'
+    endif
+    conf_data.set('MOLSIM_ARM', true)
   endif
 elif cppcompiler.get_argument_syntax() == 'msvc'
+  avx2march = '/arch:AVX2'
+  avx512march = '/arch:AVX512'
   if cppcompiler.has_argument('/openmp:experimental')
     cppargs += '/openmp:experimental'
   else
-    warning('Your compiler does not support OpenMP threading. Parallelism will be disabled.')
+    warning('Your compiler does not support OpenMP. Parallelism will be disabled.')
   endif
 endif
 
@@ -48,6 +65,9 @@ void f() { std::print("Hello world"); }
 printsupport = cppcompiler.compiles(printcode, name: 'C++ compiler supports std::print')
 
 assert(printsupport, 'C++ compiler does not support std::print (too old)')
+
+
+
 
 py = import('python').find_installation(pure: false)
 
@@ -64,6 +84,9 @@ incdir_f2py = run_command(py,
 f2py_dep = declare_dependency(
   include_directories : incdir_f2py,
 )
+
+configure_file(output: 'molsim_config.h',
+               configuration: conf_data)
 
 # Generate the f2py wrappers
 fort_accel_source = custom_target('fortran_accelmodule.c',
@@ -86,9 +109,23 @@ sleef_dep = declare_dependency(
     include_directories : ['molsim/cpp/sleef/include']
 )
 
+cpp_sources = ['molsim/cpp/classes.cxx', 'molsim/cpp/functional.cxx', 'molsim/cpp/functional_purec.cxx',
+               'molsim/cpp/detect_cpu.cxx', 'molsim/cpp/binding.cxx']
+    
+cpp_deps = [np_dep, sleef_dep, pybind11_dep]
+
+if cpufam == 'aarch64'
+    cpp_sources += 'molsim/cpp/functional_neon.cxx'
+elif cpufam == 'x86_64'
+    molsim_avx2 = static_library('molsim_avx2', ['molsim/cpp/functional_avx2.cxx'],
+                                 cpp_args: [avx2march]+cppargs) # prepend, so native build march will supersede
+    cpp_deps += molsim_avx2
+endif
+
+
 py.extension_module('molsim_cpp',
-  ['molsim/cpp/classes.cxx', 'molsim/cpp/binding.cxx'],
-  dependencies : [np_dep, sleef_dep, pybind11_dep],
+  cpp_sources,
+  dependencies : cpp_deps,
   cpp_args: cppargs,
   subdir: 'molsim',
   install : true,
