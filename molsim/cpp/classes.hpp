@@ -1,3 +1,6 @@
+#ifndef _MOLSIM_CLASSES_H
+#define _MOLSIM_CLASSES_H
+
 #include <Python.h>
 #include <string>
 #include <optional>
@@ -262,3 +265,4 @@ class Simulation
         bool doonce = true;
 };
 
+#endif
