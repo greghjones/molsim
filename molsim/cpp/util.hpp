@@ -29,6 +29,25 @@ do { \
     exit(1); \
 } while(0);
 
+#ifndef MOLSIM_ALWAYS_INLINE
+#if defined (__GNUC__) || defined (__clang__)
+#define MOLSIM_ALWAYS_INLINE inline __attribute__((always_inline))
+#elif defined(_MSC_VER)
+#define MOLSIM_ALWAYS_INLINE inline __forceinline
+#else
+#define MOLSIM_ALWAYS_INLINE inline
+#endif
+#endif
+
+#if defined(_MSC_VER) && !defined(_SSIZE_T_DEFINED)
+#  define _SSIZE_T_DEFINED
+#  ifdef _WIN64
+     typedef __int64 ssize_t;
+#  else
+     typedef __int32 ssize_t;
+#  endif
+#endif
+
 template <typename T, size_t AlignedAs>
 class AlignedAllocator
 {
@@ -39,7 +58,7 @@ class AlignedAllocator
 
         AlignedAllocator() = default;
 
-        template<typename U>
+        template <typename U>
         constexpr AlignedAllocator(const AlignedAllocator<U,AlignedAs>&) noexcept {}
 
         #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)

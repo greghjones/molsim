@@ -67,7 +67,7 @@ namespace functional
         void make_gaussians_avx2(const AlignedVector<double>& centers,
                                  const AlignedVector<double>& int0s,
                                  const AlignedVector<ssize_t>& lls,
-                                 const AlignedVector<ssize_t> uls,
+                                 const AlignedVector<ssize_t>& uls,
                                  const double dV,
                                  const AlignedVector<double>& freq_profile,
                                        AlignedVector<double>& tau_profile);
@@ -86,7 +86,7 @@ namespace functional
                                                                                const double source_size,
                                                                                const double dish_size);
         #endif
-        void calc_tau_purec(const AlignedVector<double>& aij,
+        void calc_tau_purecpp(const AlignedVector<double>& aij,
                             const AlignedVector<int>& gup,
                             const AlignedVector<double>& eup,
                             const AlignedVector<double>& frequencies,
@@ -95,24 +95,24 @@ namespace functional
                             const double dV,
                             const double q,
                                   AlignedVector<double>& tau);
-        void make_gaussians_purec(const AlignedVector<double>& centers,
-                                  const AlignedVector<double>& int0s,
-                                  const AlignedVector<ssize_t>& lls,
-                                  const AlignedVector<ssize_t> uls,
-                                  const double dV,
-                                  const AlignedVector<double>& freq_profile,
-                                        AlignedVector<double>& tau_profile);
-        void calc_Tb_purec(const AlignedVector<double>& frequency,
-                           const AlignedVector<double>& tau,
-                           const AlignedVector<double>& Tbg,
-                           const double Tex,
-                                 AlignedVector<double>& Tb);
-        void calc_Tb_purec(const AlignedVector<double>& frequency,
-                           const AlignedVector<double>& tau,
-                           const double Tbg,
-                           const double Tex,
-                                 AlignedVector<double>& Tb);
-        std::pair<AlignedVector<double>,AlignedVector<double>> apply_beam_purec(const AlignedVector<double>& freq_array,
+        void make_gaussians_purecpp(const AlignedVector<double>& centers,
+                                    const AlignedVector<double>& int0s,
+                                    const AlignedVector<ssize_t>& lls,
+                                    const AlignedVector<ssize_t>& uls,
+                                    const double dV,
+                                    const AlignedVector<double>& freq_profile,
+                                          AlignedVector<double>& tau_profile);
+        void calc_Tb_purecpp(const AlignedVector<double>& frequency,
+                             const AlignedVector<double>& tau,
+                             const AlignedVector<double>& Tbg,
+                             const double Tex,
+                                   AlignedVector<double>& Tb);
+        void calc_Tb_purecpp(const AlignedVector<double>& frequency,
+                             const AlignedVector<double>& tau,
+                             const double Tbg,
+                             const double Tex,
+                                   AlignedVector<double>& Tb);
+        std::pair<AlignedVector<double>,AlignedVector<double>> apply_beam_purecpp(const AlignedVector<double>& freq_array,
                                                                                 const AlignedVector<double>& int_arr,
                                                                                 const double source_size,
                                                                                 const double dish_size);
@@ -142,7 +142,7 @@ namespace functional
                 break;
             #endif
             default:
-                detail::calc_tau_purec(std::forward<Args>(args)...);
+                detail::calc_tau_purecpp(std::forward<Args>(args)...);
         }
     }
 
@@ -162,7 +162,7 @@ namespace functional
                 break;
             #endif
             default:
-                detail::make_gaussians_purec(std::forward<Args>(args)...);
+                detail::make_gaussians_purecpp(std::forward<Args>(args)...);
         }
     }
 
@@ -182,7 +182,7 @@ namespace functional
                 break;
             #endif
             default:
-                detail::calc_Tb_purec(std::forward<Args>(args)...);
+                detail::calc_Tb_purecpp(std::forward<Args>(args)...);
         }
     }
 
@@ -200,7 +200,7 @@ namespace functional
                 return detail::apply_beam_avx2(std::forward<Args>(args)...);
             #endif
             default:
-                return detail::apply_beam_purec(std::forward<Args>(args)...);
+                return detail::apply_beam_purecpp(std::forward<Args>(args)...);
         }
     }
 }
@@ -208,7 +208,7 @@ namespace functional
 
 #ifndef BLAS
 template<typename T>
-static inline void __attribute__((always_inline)) axpby(long n, double alpha, const T* x, long incx, double beta, T* y, long incy)
+static MOLSIM_ALWAYS_INLINE void axpby(long n, double alpha, const T* x, long incx, double beta, T* y, long incy)
 {
     if (incx == 1 && incy == 1)
     {
@@ -252,7 +252,7 @@ static inline void __attribute__((always_inline)) axpby(long n, double alpha, co
 }
 
 template<typename T>
-static inline void __attribute__((always_inline)) scal(long n, double alpha, T* x, long incx)
+static MOLSIM_ALWAYS_INLINE void scal(long n, double alpha, T* x, long incx)
 {
     if (incx == 1)
         #pragma omp simd
@@ -268,7 +268,7 @@ static inline void __attribute__((always_inline)) scal(long n, double alpha, T* 
 #endif
 
 template <typename T, typename U, typename V>
-static void __attribute__((always_inline)) vmulv(const AlignedVector<T>& a, const AlignedVector<U>& b, AlignedVector<V>& c, bool increment)
+static MOLSIM_ALWAYS_INLINE void vmulv(const AlignedVector<T>& a, const AlignedVector<U>& b, AlignedVector<V>& c, bool increment)
 {
     assert(a.size() == b.size());
     assert(b.size() == c.size());

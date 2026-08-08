@@ -1,7 +1,7 @@
 project('molsim_accel', 'c',
   version : '0.1.0',
   meson_version: '>=1.1.0',
-  default_options : ['warning_level=2','b_lto=true','cpp_std=c++23'],
+  default_options : ['warning_level=2','b_lto=true','cpp_std=c++23,vc++latest'],
 )
 
 add_languages('fortran', native: false)
@@ -9,24 +9,30 @@ add_languages('cpp', native: false)
 
 conf_data = configuration_data()
 
-cppcompiler = meson.get_compiler('cpp')
-cppargs = []
-cpplinkargs = []
-fortargs = []
+py = import('python').find_installation(pure: false)
+
+cpp_compiler = meson.get_compiler('cpp')
+cpp_args = []
+cpp_linkargs = []
+cpp_libs = []
+
+fort_compiler = meson.get_compiler('fortran')
+fort_args = []
+fort_linkargs = []
 
 nativebuild = true
 
 cpufam = host_machine.cpu_family()
 
-if cppcompiler.get_argument_syntax() == 'gcc'
+if cpp_compiler.get_argument_syntax() == 'gcc'
 
   avx2march = '-march=x86-64-v3'
   avx512march = '-march=x86-64-v4'
 
   # Apple clang doesn't support OpenMP threading
-  if cppcompiler.has_argument('-fopenmp')
-    cppargs += '-fopenmp'
-    cpplinkargs += '-fopenmp'
+  if cpp_compiler.has_argument('-fopenmp')
+    cpp_args += '-fopenmp'
+    cpp_linkargs += '-fopenmp'
   else
     warning('Your compiler (likely Apple clang) does not support OpenMP. Parallelism will be disabled.')
   endif
@@ -37,24 +43,55 @@ if cppcompiler.get_argument_syntax() == 'gcc'
 
   if cpufam == 'x86_64'
     if nativebuild
-      cppargs  += ['-march=native', '-mtune=native']
-      fortargs += ['-march=native', '-mtune=native']
+      cpp_args  += ['-march=native', '-mtune=native']
     endif
-    conf_data.set('MOLSIM_X86_64', true)
   elif cpufam == 'aarch64'
     if nativebuild
-      cppargs += '-mcpu=native'
+      cpp_args += '-mcpu=native'
     endif
-    conf_data.set('MOLSIM_ARM', true)
   endif
-elif cppcompiler.get_argument_syntax() == 'msvc'
+
+  if (build_machine.kernel() == 'nt')
+    # Compiler builtins provided by Clang runtime not automatically injected on Windows
+    cpp_linkargs += ['-fuse-ld=lld', '-lclang_rt.builtins-x86_64']
+    fort_linkargs += ['-fuse-ld=lld']
+  endif
+elif cpp_compiler.get_argument_syntax() == 'msvc'
   avx2march = '/arch:AVX2'
   avx512march = '/arch:AVX512'
-  if cppcompiler.has_argument('/openmp:experimental')
-    cppargs += '/openmp:experimental'
+  warning('MSVC is only supported on a "best effort" basis.')
+  if cpp_compiler.has_argument('/openmp:experimental')
+    cpp_args += '/openmp:experimental'
   else
     warning('Your compiler does not support OpenMP. Parallelism will be disabled.')
   endif
+endif
+
+if fort_compiler.get_argument_syntax() == 'gcc'
+  # Direct use of MSVC linker (with no wrapper) doesn't inject flang Fortran runtime.
+  # Meson get_linker_id() yields 'link', even with clang -fuse-ld=lld, so we guess based 
+  # on C++ compiler.
+  if (fort_compiler.get_id() == 'llvm-flang') and (cpp_compiler.get_id() == 'msvc')
+    fort_args += ['-fno-lto']
+    # Terrible hack to try to guess Flang runtime path on Windows when linking with link.exe,
+    # but "it works on my machine"....   
+    flangrtpath = find_program(fort_compiler.cmd_array()[0]).full_path().to_lower().replace('bin\\flang-new.exe','lib')
+    fort_linkargs += ['/LIBPATH:'+flangrtpath]
+  else
+    if nativebuild
+      if cpufam == 'x86_64'
+        fort_args += ['-march=native', '-mtune=native']
+      elif cpufam == 'aarch64'
+        fort_args += ['-mcpu=native']
+      endif
+    endif
+  endif
+endif
+
+if cpufam == 'x86_64'
+  conf_data.set('MOLSIM_X86_64', true)
+elif cpufam == 'aarch64'
+  conf_data.set('MOLSIM_ARM', true)
 endif
 
 # Check for presence of std::print
@@ -62,14 +99,10 @@ printcode = '''#include <print>
 void f() { std::print("Hello world"); }
 '''
 
-printsupport = cppcompiler.compiles(printcode, name: 'C++ compiler supports std::print')
+printsupport = cpp_compiler.compiles(printcode, name: 'C++ compiler supports std::print')
 
 assert(printsupport, 'C++ compiler does not support std::print (too old)')
 
-
-
-
-py = import('python').find_installation(pure: false)
 
 # NumPy >=2.0 provides include dirs via dependency()
 np_dep = dependency('numpy', method: 'config-tool')
@@ -91,14 +124,15 @@ configure_file(output: 'molsim_config.h',
 # Generate the f2py wrappers
 fort_accel_source = custom_target('fortran_accelmodule.c',
   input : ['molsim/interface.pyf'],
-  output : ['fortran_accelmodule.c', 'fortran_accel-f2pywrappers.f'],
+  output : ['fortran_accelmodule.c'],
   command : [py, '-m', 'numpy.f2py', '@INPUT@']
 )
 
 py.extension_module('fortran_accel',
   ['molsim/fort_funcs.f90', fort_accel_source, incdir_f2py / 'fortranobject.c'],
   dependencies : [np_dep, f2py_dep],
-  fortran_args : fortargs,
+  fortran_args : fort_args,
+  link_args: fort_linkargs,
   subdir: 'molsim',
   install : true,
 )
@@ -109,27 +143,30 @@ sleef_dep = declare_dependency(
     include_directories : ['molsim/cpp/sleef/include']
 )
 
-cpp_sources = ['molsim/cpp/classes.cxx', 'molsim/cpp/functional.cxx', 'molsim/cpp/functional_purec.cxx',
+cpp_sources = ['molsim/cpp/classes.cxx', 'molsim/cpp/functional.cxx', 'molsim/cpp/functional_purecpp.cxx',
                'molsim/cpp/detect_cpu.cxx', 'molsim/cpp/binding.cxx']
     
 cpp_deps = [np_dep, sleef_dep, pybind11_dep]
+
 
 if cpufam == 'aarch64'
     cpp_sources += 'molsim/cpp/functional_neon.cxx'
 elif cpufam == 'x86_64'
     molsim_avx2 = static_library('molsim_avx2', ['molsim/cpp/functional_avx2.cxx'],
-                                 cpp_args: [avx2march]+cppargs) # prepend, so native build march will supersede
-    cpp_deps += molsim_avx2
+                   cpp_args: [avx2march]+cpp_args, # prepend, so native build march will supersede
+                   dependencies: cpp_deps)
+    cpp_libs += molsim_avx2
 endif
 
 
 py.extension_module('molsim_cpp',
   cpp_sources,
   dependencies : cpp_deps,
-  cpp_args: cppargs,
+  cpp_args: cpp_args,
+  link_with: cpp_libs,
   subdir: 'molsim',
   install : true,
-  link_args: cpplinkargs
+  link_args: cpp_linkargs
 )
 
 # Install the Python package files

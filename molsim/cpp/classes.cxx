@@ -61,9 +61,9 @@ AlignedVector<T> _apply_mask(const AlignedVector<T>& in, const std::vector<char>
     assert(mask.size() == in.size());
     AlignedVector<T> out {};
 
-    long size = mask.size();
+    ssize_t size = mask.size();
 
-    for (long i = 0; i < size; i++)
+    for (ssize_t i = 0; i < size; i++)
         if (mask[i]) out.push_back(in[i]);
 
     return out;
@@ -87,7 +87,7 @@ AlignedVector<ssize_t> _find_nearest(const AlignedVector<T>& searchfor, const Al
     return result;
 }
 
-static inline void __attribute__((always_inline)) lowercase_str(std::string& s)
+static MOLSIM_ALWAYS_INLINE void lowercase_str(std::string& s)
 {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
 }
@@ -164,7 +164,7 @@ PartitionFunction::PartitionFunction(const py::object& qpart, Molecule* mol)
     }
 }
 
-double PartitionFunction::qrot(double Tex)
+double PartitionFunction::qrot(const double Tex)
 {
     if (flag == interpolation)
 {
@@ -182,21 +182,21 @@ double PartitionFunction::qrot(double Tex)
     else ERROR("Only \"interpolation\" and \"counting\" supported for rotational partition function.");
 }
 
-double PartitionFunction::qrot_counting(double Tex)
+double PartitionFunction::qrot_counting(const double Tex)
 {
     const Molecule& mol = *parent_mol;
-    auto& e = mol.level_energies; // in K
-    auto& g = mol.level_degeneracies;
+    const auto& e = mol.level_energies; // in K
+    const auto& g = mol.level_degeneracies;
 
-    auto len = e.size();
+    const auto len = e.size();
     assert(g.size() == len);
 
-    double Tinv = -1.0/Tex;
+    const double Tinv = -1.0/Tex;
 
     double result = 0.0;
 
-    #pragma omp simd
-    for (long i = 0; i < len; i++)
+    #pragma omp simd reduction(+:result)
+    for (ssize_t i = 0; i < len; i++)
         result += g[i]*std::exp(e[i]*Tinv);
 
     return result/sigma;
@@ -646,7 +646,7 @@ void Simulation::make_lines()
             axpby(spectrum.frequency.size(), 1.0+windowfactor, spectrum.frequency.data(), 1, 0.0, uls_raw.data(), 1);
             AlignedVector<double> ll_trim = {lls_raw[0]};
             AlignedVector<double> ul_trim = {uls_raw[0]};
-            for (long i = 1; i < lls_raw.size(); i++)
+            for (ssize_t i = 1; i < lls_raw.size(); i++)
             {
                 if (lls_raw[i] < ul_trim.back())
                     ul_trim.back() = uls_raw[i];
@@ -659,7 +659,7 @@ void Simulation::make_lines()
 
             spectrum.freq_profile.clear();
 
-            for (long i = 0; i < ll_trim.size(); i++)
+            for (ssize_t i = 0; i < ll_trim.size(); i++)
                 for (double v = ll_trim[i]; v < ul_trim[i]; v += res)
                     spectrum.freq_profile.push_back(v);
 

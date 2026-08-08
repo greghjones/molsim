@@ -45,16 +45,16 @@ namespace molsim::functional::detail
               double* __restrict ptau = tau.data();
 
 
-        const long vecsize = 4;
-        const long unrollfactor = 1;
-        const long itlen = vecsize*unrollfactor;
-        const long maxit = len/itlen;
-        const long remainder = len % itlen;
+        const ssize_t vecsize = 4;
+        const ssize_t unrollfactor = 1;
+        const ssize_t itlen = vecsize*unrollfactor;
+        const ssize_t maxit = len/itlen;
+        const ssize_t remainder = len % itlen;
         auto pgup2 = reinterpret_cast<const __m128i* __restrict>(pgup);
         auto vtexinv    = _mm256_set1_pd(texinv);
         auto vboltzmann = _mm256_set1_pd(boltzmannscale);
         auto vprefactor = _mm256_set1_pd(prefactor);
-        for (long i = 0; i < maxit; i++)
+        for (ssize_t i = 0; i < maxit; i++)
         {
             auto exp1 = _mm256_load_pd(peup);
             exp1 = _mm256_mul_pd(vtexinv, exp1);
@@ -82,7 +82,7 @@ namespace molsim::functional::detail
 
         pgup = reinterpret_cast<const int* __restrict>(pgup2);
 
-        for (long i = 0; i < remainder; i++)
+        for (ssize_t i = 0; i < remainder; i++)
         {
             double exp1 = Sleef_expd1_u10purecfma((*peup)*texinv);
             double f = (*pfreq);
@@ -99,8 +99,8 @@ namespace molsim::functional::detail
 
     void make_gaussians_avx2(const AlignedVector<double>& centers,
                              const AlignedVector<double>& int0s,
-                             const AlignedVector<long>& lls,
-                             const AlignedVector<long>& uls,
+                             const AlignedVector<ssize_t>& lls,
+                             const AlignedVector<ssize_t>& uls,
                              const double dV,
                              const AlignedVector<double>& x,
                                    AlignedVector<double>& y)
@@ -116,17 +116,17 @@ namespace molsim::functional::detail
 
         const double scale1 = 2*(dV/ckm*fwhm_to_sigma)*(dV/ckm*fwhm_to_sigma);
 
-        for (long n = 0; n < npeaks; n++)
+        for (ssize_t n = 0; n < npeaks; n++)
         {
             const double center = centers[n];
             const double int0 = int0s[n];
             const double scale2 = -1.0 / (scale1*center*center);
 
-            const long vecsize = 4;
-            const long alignedll = (lls[n]/vecsize)*vecsize;
+            const ssize_t vecsize = 4;
+            const ssize_t alignedll = (lls[n]/vecsize)*vecsize;
             const auto len = uls[n] - alignedll;
-            const long maxit = len/vecsize;
-            const long remainder = len % vecsize;
+            const ssize_t maxit = len/vecsize;
+            const ssize_t remainder = len % vecsize;
 
             const double* __restrict px = x.data() + alignedll;
                   double* __restrict py = y.data() + alignedll;
@@ -134,7 +134,7 @@ namespace molsim::functional::detail
             auto vs = _mm256_set1_pd(scale2);
             auto vc = _mm256_set1_pd(center);
             auto va = _mm256_set1_pd(int0);
-            for (long i = 0; i < maxit; i++)
+            for (ssize_t i = 0; i < maxit; i++)
             {
                 auto vinc = _mm256_load_pd(px);
                 auto vy   = _mm256_load_pd(py);
@@ -148,7 +148,7 @@ namespace molsim::functional::detail
                      py += vecsize;
             }
 
-            for (long i = 0; i < remainder; i++)
+            for (ssize_t i = 0; i < remainder; i++)
             {
                 double v = *px - center;
                 v = Sleef_expd1_u10purecfma(scale2*v*v);
@@ -159,7 +159,7 @@ namespace molsim::functional::detail
         }   
     }
 
-    void calc_Tb_avx2(const AlignedVector<double> frequency,
+    void calc_Tb_avx2(const AlignedVector<double>& frequency,
                       const AlignedVector<double>& tau,
                       const AlignedVector<double>& Tbg,
                       const double Tex,
@@ -179,26 +179,26 @@ namespace molsim::functional::detail
         const int nthreads = omp_get_num_threads();
         const int tid = omp_get_thread_num();
 
-        const long vecsize = 4;
-        const long unrollfactor = 1;
+        const ssize_t vecsize = 4;
+        const ssize_t unrollfactor = 1;
         const auto itlen = vecsize*unrollfactor;
 
-        const long offset = ((len/itlen) / nthreads)*itlen;
-        const long localoffset = offset*tid;
+        const ssize_t offset = ((len/itlen) / nthreads)*itlen;
+        const ssize_t localoffset = offset*tid;
 
         const double* __restrict pfreq = frequency.data()+localoffset;
         const double* __restrict ptau = tau.data()+localoffset;
         const double* __restrict ptbg = Tbg.data()+localoffset;
               double* __restrict ptb = Tb.data()+localoffset;
 
-        const long ntodo = (tid == nthreads-1) ? len-localoffset : offset;
-        const long maxit = ntodo/itlen;
-        const long remainder = ntodo % itlen;
+        const ssize_t ntodo = (tid == nthreads-1) ? len-localoffset : offset;
+        const ssize_t maxit = ntodo/itlen;
+        const ssize_t remainder = ntodo % itlen;
 
         const auto vtexinv = _mm256_set1_pd(texinv);
         const auto vscale = _mm256_set1_pd(scale);
         const auto vm1 = _mm256_set1_pd(-1.0);
-        for (long i = 0; i < maxit; i++)
+        for (ssize_t i = 0; i < maxit; i++)
         {
             auto freq = _mm256_load_pd(pfreq);
             auto tbg  = _mm256_load_pd(ptbg);
@@ -221,7 +221,7 @@ namespace molsim::functional::detail
             ptb   += itlen;
         }
         
-        for (long i = 0; i < remainder; i++)
+        for (ssize_t i = 0; i < remainder; i++)
         {
             double temp1 = (*pfreq)*scale;
             double j_t = Sleef_expm1d1_u10purecfma(temp1*texinv);
@@ -238,7 +238,7 @@ namespace molsim::functional::detail
         }
     }
 
-    void calc_Tb_avx2(const AlignedVector<double> frequency,
+    void calc_Tb_avx2(const AlignedVector<double>& frequency,
                       const AlignedVector<double>& tau,
                       const double Tbg,
                       const double Tex,
@@ -257,26 +257,26 @@ namespace molsim::functional::detail
         const int nthreads = omp_get_num_threads();
         const int tid = omp_get_thread_num();
 
-        const long vecsize = 4;
-        const long unrollfactor = 1;
+        const ssize_t vecsize = 4;
+        const ssize_t unrollfactor = 1;
         const auto itlen = vecsize*unrollfactor;
 
-        const long offset = ((len/itlen) / nthreads)*itlen;
-        const long localoffset = offset*tid;
+        const ssize_t offset = ((len/itlen) / nthreads)*itlen;
+        const ssize_t localoffset = offset*tid;
 
         const double* __restrict pfreq = frequency.data()+localoffset;
         const double* __restrict ptau = tau.data()+localoffset;
             double* __restrict ptb = Tb.data()+localoffset;
 
-        const long ntodo = (tid == nthreads-1) ? len-localoffset : offset;
-        const long maxit = ntodo/itlen;
-        const long remainder = ntodo % itlen;
+        const ssize_t ntodo = (tid == nthreads-1) ? len-localoffset : offset;
+        const ssize_t maxit = ntodo/itlen;
+        const ssize_t remainder = ntodo % itlen;
 
         const auto vtexinv = _mm256_set1_pd(texinv);
         const auto vscale = _mm256_set1_pd(scale);
         const auto vm1 = _mm256_set1_pd(-1.0);
         const auto tbg = _mm256_set1_pd(Tbg);
-        for (long i = 0; i < maxit; i++)
+        for (ssize_t i = 0; i < maxit; i++)
         {
             auto freq = _mm256_load_pd(pfreq);
             auto tau  = _mm256_load_pd(ptau);
@@ -296,7 +296,7 @@ namespace molsim::functional::detail
             ptau  += itlen;
             ptb   += itlen;
         }
-        for (long i = 0; i < remainder; i++)
+        for (ssize_t i = 0; i < remainder; i++)
         {
             double temp1 = (*pfreq)*scale;
             double j_t = Sleef_expm1d1_u10purecfma(temp1*texinv);
@@ -332,14 +332,14 @@ namespace molsim::functional::detail
               double* __restrict pr = result.data();
               double* __restrict pbd = beam_dilution.data();
 
-        const long vecsize = 4;
-        const long unrollfac = 2;
-        const long itlen = vecsize*unrollfac;
-        const long maxit = len/itlen;
-        const long remainder = len % itlen;
+        const ssize_t vecsize = 4;
+        const ssize_t unrollfac = 2;
+        const ssize_t itlen = vecsize*unrollfac;
+        const ssize_t maxit = len/itlen;
+        const ssize_t remainder = len % itlen;
         auto fac = _mm256_set1_pd(beam_size_factor);
         auto vss2 = _mm256_set1_pd(ss2);
-        for (long i = 0; i < maxit; i++)
+        for (ssize_t i = 0; i < maxit; i++)
         {
             auto f1 = _mm256_load_pd(pf);
             auto f2 = _mm256_load_pd(pf+vecsize);
@@ -370,7 +370,7 @@ namespace molsim::functional::detail
             pr += itlen;
             pbd += itlen;
         }
-        for (long i = 0; i < remainder; i++)
+        for (ssize_t i = 0; i < remainder; i++)
         {
             const double beam_size = beam_size_factor / (*pf);
             const double beam_dilution = ss2 / ((beam_size*beam_size) + ss2);

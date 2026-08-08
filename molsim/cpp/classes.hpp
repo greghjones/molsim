@@ -38,11 +38,11 @@ class PartitionFunction
         PartitionFunction(const py::object& qpart, Molecule* mol);
         PartitionFunction(const py::object& qpart) : PartitionFunction(qpart, nullptr) { };
 
-        inline double q(double Tex) { return qrot(Tex)*qvib(Tex); };
-        double qrot(double Tex);
+        MOLSIM_ALWAYS_INLINE double q(const double Tex) { return qrot(Tex)*qvib(Tex); };
+        double qrot(const double Tex);
 
         // not yet implemented, guarded in constructor
-        inline double qvib(double) { return 1.0; };
+        inline double qvib(const double) { return 1.0; };
 
     private:
         enum part_method { interpolation, counting } flag;
@@ -51,7 +51,7 @@ class PartitionFunction
         AlignedVector<double> temps;
         AlignedVector<double> vals;
 
-        double qrot_counting(double Tex);
+        double qrot_counting(const double Tex);
 };
 
 class Molecule

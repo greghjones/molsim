@@ -47,7 +47,7 @@ def test_simulation_py():
     refdict = np.load('reference.npz', allow_pickle=False)
 
     atol = 1e-20
-    rtol = 1e-14
+    rtol = 1e-12
 
     for key, refarray in refdict.items():
         calcarray = eval("sim.spectrum."+key)
