@@ -35,8 +35,6 @@ namespace molsim::functional::detail
         const auto len = frequencies.size();
         tau.resize(len);
 
-        std::println("len: {}", len);
-
         for (auto& element : tau) element = 0.0;
 
         const int* __restrict pgup = gup.data();
@@ -51,7 +49,6 @@ namespace molsim::functional::detail
         auto vtexinv = vdupq_n_f64(texinv);
         auto vboltzmann = vdupq_n_f64(boltzmannscale);
         auto vprefactor = vdupq_n_f64(prefactor);
-        std::println("maxit: {}", maxit);
         for (long i = 0; i < maxit; i++)
         {
             auto exp1 = vld1q_f64(peup);
