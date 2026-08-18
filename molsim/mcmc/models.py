@@ -17,7 +17,8 @@ from molsim.mcmc.base import (
 )
 from molsim.mcmc import compute
 from molsim.utils import load_yaml, find_limits
-from molsim.classes import Source, Molecule, Simulation, Observation, Spectrum
+from molsim.classes import Source, Molecule, Observation, Spectrum
+from molsim.molsim_cpp import Simulation
 from molsim.functions import sum_spectra
 from molsim.file_handling import load_mol
 
