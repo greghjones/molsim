@@ -184,6 +184,7 @@ namespace molsim::functional::detail
         }
     }
 
+    [[maybe_unused]]
     void calc_Tb_neon(const AlignedVector<double>& frequency,
                       const AlignedVector<double>& tau,
                       const AlignedVector<double>& Tbg,
@@ -260,6 +261,7 @@ namespace molsim::functional::detail
         }
     }
 
+    [[maybe_unused]]
     void calc_Tb_neon(const AlignedVector<double>& frequency,
                       const AlignedVector<double>& tau,
                       const double Tbg,

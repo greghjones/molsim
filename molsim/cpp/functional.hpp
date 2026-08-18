@@ -171,11 +171,7 @@ namespace functional
     {
         switch (dispatchto)
         {
-            #if defined(MOLSIM_ARM)
-            case neon:
-                detail::calc_Tb_neon(std::forward<Args>(args)...);
-                break;
-            #elif defined (MOLSIM_X86_64)
+            #if defined (MOLSIM_X86_64)
             case avx512:
             case avx2:
                 detail::calc_Tb_avx2(std::forward<Args>(args)...);

@@ -122,45 +122,29 @@ namespace molsim::functional::detail
     }
 
     void calc_Tb_purecpp(const AlignedVector<double>& frequency,
-                       const AlignedVector<double>& tau,
-                       const double Tbg,
-                       const double Tex,
-                             AlignedVector<double>& Tb)
+                         const AlignedVector<double>& tau,
+                         const double Tbg,
+                         const double Tex,
+                               AlignedVector<double>& Tb)
     {
         const auto len = frequency.size();
         const double texinv = 1.0/Tex;
         const double scale = h*1.0e6/k;
+        const double tbginv = 1.0/Tbg;
 
         assert(tau.size() == len);
 
         Tb.resize(len);
 
-        #pragma omp parallel
+        for (ssize_t i = 0; i < len; i++)
         {
-        const int nthreads = omp_get_num_threads();
-        const int tid = omp_get_thread_num();
-
-        const long offset = len / nthreads;
-        const long localoffset = offset*tid;
-        const long ntodo = (tid == nthreads-1) ? len-localoffset : offset;
-
-        const double* __restrict pfreq = frequency.data()+localoffset;
-        const double* __restrict ptau  = tau.data()+localoffset;
-              double* __restrict ptb   = Tb.data()+localoffset;
-
-        for (long i = 0; i < ntodo; i++)
-        {
-            double temp1 = (*pfreq)*scale;
-            double j_t = Sleef_expm1d1_u10purecfma(temp1*texinv);
-            double j_tbg = Sleef_expm1d1_u10purecfma(temp1/Tbg);
-            double tau = Sleef_expm1d1_u10purecfma(-(*ptau));
+            double temp1 = frequency[i]*scale;
+            double j_t = std::expm1(temp1*texinv);
+            double j_tbg = std::expm1(temp1*tbginv);
+            double exptau = std::expm1(-tau[i]);
             j_t = temp1/j_t;
             j_tbg = temp1/j_tbg;
-            *ptb = tau*(j_tbg - j_t);
-            pfreq++;
-            ptau++;
-            ptb++;
-        }
+            Tb[i] = exptau*(j_tbg - j_t);
         }
     }
 
