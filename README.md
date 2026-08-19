@@ -37,15 +37,19 @@ For developers/testers, you should make a fork of this repository, and make chan
 
 `conda env create -n molsim-dev -f conda.yml`
 
-followed by:
+Activate the environment:
+
+`conda activate molsim-dev`
+
+Run:
 
 `pip install meson-python ninja`
 
-further followed by:
+to install the build system, further followed by:
 
 `pip install --no-build-isolation -e '.[dev]'`
 
-This will install `molsim` as a softlink so that changes are updated on the fly (including recompilation of Fortran and C++ code), while the `[dev]` option installs additional packages such as `pytest`, and `black` for formatting.
+to complete the install. This will install `molsim` as a softlink so that changes are updated on the fly (including recompilation of Fortran and C++ code), while the `[dev]` option installs additional packages such as `pytest`, and `black` for formatting.
 
 ### Use with notebook environments
 
