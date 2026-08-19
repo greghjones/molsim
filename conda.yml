@@ -13,6 +13,7 @@ dependencies:
   - scikit-learn
   - jupyter
   - ipywidgets
+  - ipympl
   - xarray
   - dask
   - arviz
