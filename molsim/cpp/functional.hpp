@@ -116,6 +116,10 @@ namespace functional
                                                                                 const AlignedVector<double>& int_arr,
                                                                                 const double source_size,
                                                                                 const double dish_size);
+
+        std::variant<double,pybind11::array_t<double>> compute_log_likelihood_purecpp(const pybind11::array_t<double>& simulation,
+                                                                                      const pybind11::array_t<double>& obs_Tb,
+                                                                                      const pybind11::array_t<double>& obs_noise);
     }
 
     void apply_vlsr(const AlignedVector<double>& infreq, const double vlsr, AlignedVector<double>& outfreq);
@@ -198,6 +202,13 @@ namespace functional
             default:
                 return detail::apply_beam_purecpp(std::forward<Args>(args)...);
         }
+    }
+
+    static inline std::variant<double,pybind11::array_t<double>> compute_log_likelihood(const pybind11::array_t<double>& simulation,
+                                                                                        const pybind11::array_t<double>& obs_Tb,
+                                                                                        const pybind11::array_t<double>& obs_noise)
+    {
+        return detail::compute_log_likelihood_purecpp(simulation, obs_Tb, obs_noise);
     }
 }
 }

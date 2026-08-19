@@ -1,7 +1,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
+
+#include <variant>
 
 #include "classes.hpp"
+#include "molsim/cpp/functional.hpp"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -59,4 +63,13 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
         .def_property("Tbg_profile",  [](const Spectrum& s){ return py::array_t<double>(s.Tbg_profile.size(),  s.Tbg_profile.data());   }, nullptr)
         .def_property("tau_profile",  [](const Spectrum& s){ return py::array_t<double>(s.tau_profile.size(),  s.tau_profile.data());   }, nullptr)
         .def_property("int_profile",  [](const Spectrum& s){ return py::array_t<double>(s.int_profile.size(),  s.int_profile.data());   }, nullptr);
+    
+    m.def("compute_log_likelihood",
+          [](const pybind11::array_t<double, pybind11::array::c_style | pybind11::array::forcecast>& simulation,
+             const pybind11::array_t<double, pybind11::array::c_style | pybind11::array::forcecast>& obs_Tb,
+             const pybind11::array_t<double, pybind11::array::c_style | pybind11::array::forcecast>& obs_noise)
+            -> std::variant<double,py::array_t<double>>
+            {
+                return molsim::functional::compute_log_likelihood(simulation, obs_Tb, obs_noise);
+            }, "Computes negative log-likelihood(s) given a simulation (or array of simulations) and the observed data.", "simulation"_a, "obs_Tb"_a, "obs_noise"_a);
 }
