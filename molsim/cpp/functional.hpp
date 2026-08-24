@@ -87,14 +87,14 @@ namespace functional
                                                                                const double dish_size);
         #endif
         void calc_tau_purecpp(const AlignedVector<double>& aij,
-                            const AlignedVector<int>& gup,
-                            const AlignedVector<double>& eup,
-                            const AlignedVector<double>& frequencies,
-                            const double columndensity,
-                            const double Tex,
-                            const double dV,
-                            const double q,
-                                  AlignedVector<double>& tau);
+                              const AlignedVector<int>& gup,
+                              const AlignedVector<double>& eup,
+                              const AlignedVector<double>& frequencies,
+                              const double columndensity,
+                              const double Tex,
+                              const double dV,
+                              const double q,
+                                    AlignedVector<double>& tau);
         void make_gaussians_purecpp(const AlignedVector<double>& centers,
                                     const AlignedVector<double>& int0s,
                                     const AlignedVector<ssize_t>& lls,
@@ -113,9 +113,9 @@ namespace functional
                              const double Tex,
                                    AlignedVector<double>& Tb);
         std::pair<AlignedVector<double>,AlignedVector<double>> apply_beam_purecpp(const AlignedVector<double>& freq_array,
-                                                                                const AlignedVector<double>& int_arr,
-                                                                                const double source_size,
-                                                                                const double dish_size);
+                                                                                  const AlignedVector<double>& int_arr,
+                                                                                  const double source_size,
+                                                                                  const double dish_size);
 
         std::variant<double,pybind11::array_t<double>> compute_log_likelihood_purecpp(const pybind11::array_t<double>& simulation,
                                                                                       const pybind11::array_t<double>& obs_Tb,
