@@ -202,10 +202,6 @@ double PartitionFunction::qrot_counting(const double Tex)
     return result/sigma;
 }
 
-Spectrum::Spectrum() :
-    freq0(), frequency(), Tb(), Iv(), Tbg(), Ibg(), tau(),
-    tau_profile(), freq_profile(), int_profile(), Tbg_profile() { }
-
 Spectrum::Spectrum(const py::object& spec) : Spectrum()
 {
     if (!spec.attr("freq0").is_none())         freq0         = AlignedVector<double>(spec.attr("freq0").cast<py::array_t<double>>());
@@ -220,9 +216,6 @@ Spectrum::Spectrum(const py::object& spec) : Spectrum()
     if (!spec.attr("int_profile").is_none())   int_profile   = AlignedVector<double>(spec.attr("int_profile").cast<py::array_t<double>>());
     if (!spec.attr("Tbg_profile").is_none())   Tbg_profile   = AlignedVector<double>(spec.attr("Tbg_profile").cast<py::array_t<double>>());
 }
-
-Continuum::Continuum() :
-    cont_file(), type(thermal), params(2.7), freqs(), temps(), fluxes(), notes() { }
 
 Continuum::Continuum(const py::object& cont) : Continuum()
 {
@@ -416,11 +409,7 @@ void Continuum::Ibg(const AlignedVector<double>& freq, const AlignedVector<doubl
     }
 }
 
-Source::Source() :
-    name(""), velocity(0.0), size(1.0e20), solid_angle(), continuum(),
-    column(1.0e13), Tex(300.0), Tkin(), dV(3.0), id(0), notes("") { }
-
-Source::Source(const py::object& source) : Source()
+Source::Source(const py::object& source)
 {
     if(!source.attr("name").is_none()) name = source.attr("name").cast<std::string>();
     velocity = source.attr("velocity").cast<double>();
@@ -434,11 +423,7 @@ Source::Source(const py::object& source) : Source()
     if(!source.attr("notes").is_none()) notes = source.attr("notes").cast<std::string>();
 }
 
-Observatory::Observatory() :
-    name(""), id(0), sd(true), array(false), dish(100.0), synth_beam{1.0, 1.0},
-    eta(), eta_type(constant), eta_params(), atmo() { }
-
-Observatory::Observatory(const py::object& obs) : Observatory()
+Observatory::Observatory(const py::object& obs)
 {
     if(!obs.attr("name").is_none()) name = obs.attr("name").cast<std::string>();
     if(!obs.attr("id").is_none()) id = obs.attr("id").cast<uint64_t>();
@@ -460,11 +445,7 @@ Observatory::Observatory(const py::object& obs) : Observatory()
     if (!obs.attr("atmo").is_none()) atmo = AlignedVector<double>(obs.attr("atmo").cast<py::array_t<double>>());
 }
 
-Observation::Observation() :
-    vlsr(0.0), spectrum(), observatory(), id(0),
-    notes("") { }
-
-Observation::Observation(const py::object& obs) : Observation()
+Observation::Observation(const py::object& obs)
 {
     if(!obs.attr("spectrum").is_none())    spectrum = Spectrum(obs.attr("spectrum"));
     if(!obs.attr("observatory").is_none()) observatory = Observatory(obs.attr("observatory"));

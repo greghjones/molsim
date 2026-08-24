@@ -74,7 +74,7 @@ class Molecule
 class Spectrum
 {
     public:
-        Spectrum();
+        Spectrum() = default;
         Spectrum(const py::object& spectrum_py);
         AlignedVector<double> freq0;  //unshifted frequency data
         AlignedVector<double> frequency; //frequency data
@@ -100,11 +100,11 @@ class Spectrum
 class Continuum
 {
     public:
-        Continuum();
+        Continuum() = default;
         Continuum(const py::object& continuum);
         std::string cont_file;
-        enum cont_type { thermal, interpolation, range } type;
-        double params;
+        enum cont_type { thermal, interpolation, range } type = thermal;
+        double params = 2.7;
         AlignedVector<double> freqs;
         AlignedVector<double> temps;
         AlignedVector<double> fluxes;
@@ -129,38 +129,38 @@ class Continuum
 class Source
 {
     public:
-        Source();
+        Source() = default;
         Source(const py::object& source);
         std::string name;
-        double velocity;
-        double size;
+        double velocity = 0.0;
+        double size = 1.0e20;
         std::optional<double> solid_angle;
         Continuum continuum;
-        double column;
-        double Tex; // this might be a vector later, will need to think about design here
+        double column = 1.0e13;
+        double Tex = 300.0; // this might be a vector later, will need to think about design here
         std::optional<double> Tkin;
-        double dV;
-        uint64_t id;
+        double dV = 3.0;
+        uint64_t id = 0;
         std::string notes;
 };
 
 class Observatory
 {
     public:
-        Observatory();
+        Observatory() = default;
         Observatory(const py::object& obs);
         std::string name;
-        uint64_t id;
-        bool sd;
-        bool array;
-        double dish;
-        std::pair<double, double> synth_beam;
+        uint64_t id = 0;
+        bool sd = true;
+        bool array = false;
+        double dish = 100.0;
+        std::pair<double, double> synth_beam = {1.0, 1.0};
         // loc;
         AlignedVector<double> eta;
         enum eta_type_t
         {
             constant
-        } eta_type;
+        } eta_type = constant;
         AlignedVector<double> eta_params;
         AlignedVector<double> atmo;
 };
@@ -168,16 +168,15 @@ class Observatory
 class Observation
 {
     public:
+        Observation() = default;
+        Observation(const py::object& obs);
         std::string name;
         // py::object coords;
-        double vlsr;
+        double vlsr = 0.0;
         Spectrum spectrum;
         std::optional<Observatory> observatory;
-        uint64_t id;
+        uint64_t id = 0;
         std::string notes;
-
-        Observation();
-        Observation(const py::object& obs);
 };
 
 class Simulation
