@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "util.hpp"
+#include "molsim/cpp/functional.hpp"
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
@@ -115,15 +116,13 @@ class Continuum
         {
             AlignedVector<double> ibg(freq.size());
             if (type == thermal)
-                Ibg(freq, params, ibg);
+                molsim::functional::calc_Ibg(freq, params, ibg);
             else
-                Ibg(freq, Tbg(freq), ibg);
+                molsim::functional::calc_Ibg(freq, Tbg(freq), ibg);
             return ibg;
         };
 
         void Tbg(const AlignedVector<double>& freq, AlignedVector<double>& Tbg);
-        void Ibg(const AlignedVector<double>& freq, double Tbg, AlignedVector<double>& Ibg);
-        void Ibg(const AlignedVector<double>& freq, const AlignedVector<double>& Tbg, AlignedVector<double>& Ibg);
 };
 
 class Source

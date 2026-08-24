@@ -78,6 +78,52 @@ namespace molsim::functional::detail
         }      
     }
 
+    void calc_Ibg_purecpp(const AlignedVector<double>& freq,
+                          const double Tbg,
+                                AlignedVector<double>& Ibg)
+    {
+        const auto len = freq.size();
+        if (Ibg.size() != len) Ibg.resize(len);
+
+        const double f = 2.0e26 / (cm * cm);
+        const double s3 = 1.0/(Tbg*k);
+
+        #pragma omp simd
+        for (ssize_t i = 0; i < len; i++)
+        {
+            double v1 = freq[i]*1.0e6;
+            double v2 = v1*h;
+            double v4 = v2*s3;
+            double v5 = v1*v1*v2;
+            double v6 = std::expm1(v4);
+            double v7 = f*v5;
+            Ibg[i] = v7/v6;
+        }
+    }
+
+    void calc_Ibg_purecpp(const AlignedVector<double>& freq,
+                          const AlignedVector<double>& Tbg,
+                                AlignedVector<double>& Ibg)
+    {
+        const auto len = freq.size();
+        if (Ibg.size() != len) Ibg.resize(len);
+
+        const double f = 2.0e26 / (cm * cm);
+
+        #pragma omp simd
+        for (ssize_t i = 0; i < len; i++)
+        {
+            double v1 = freq[i]*1.0e6;
+            double v2 = v1*h;
+            double v3 = Tbg[i]*k;
+            double v4 = v2/v3;
+            double v5 = v1*v1*v2;
+            double v6 = std::expm1(v4);
+            double v7 = f*v5;
+            Ibg[i] = v7/v6;
+        }
+    }
+
     void calc_Tb_purecpp(const AlignedVector<double>& frequency,
                          const AlignedVector<double>& tau,
                          const AlignedVector<double>& Tbg,

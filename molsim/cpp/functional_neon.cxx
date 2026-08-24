@@ -261,6 +261,113 @@ namespace molsim::functional::detail
         }
     }
 
+    void calc_Ibg_neon(const AlignedVector<double>& freq,
+                       const double Tbg,
+                             AlignedVector<double>& Ibg)
+    {
+        const auto len = freq.size();
+        if (Ibg.size() != len) Ibg.resize(len);
+
+        const double f = 2.0e26 / (cm * cm);
+
+        const double* __restrict pfreq = freq.data();
+              double* __restrict pibg  = Ibg.data();
+
+        const ssize_t vecsize = 2;
+        const ssize_t unrollfactor = 1;
+        const ssize_t itlen = vecsize*unrollfactor;
+        const auto maxit = len/itlen;
+        const auto remainder = len % itlen;
+        const auto vf = vdupq_n_f64(f);
+        const auto vmhz = vdupq_n_f64(1.0e6);
+        const auto vh = vdupq_n_f64(h);
+        const double s3 = 1.0/(Tbg*k);
+        const auto v3 = vdupq_n_f64(s3);
+        for (ssize_t i = 0; i < maxit; i++)
+        {
+            auto v0 = vld1q_f64(pfreq);
+            auto v1 = vmulq_f64(v0, vmhz);
+            auto v2 = vmulq_f64(v1, vh);
+            auto v4 = vmulq_f64(v2, v3);
+            auto v5 = vmulq_f64(v1, v2);
+                 v5 = vmulq_f64(v1, v5);
+            auto v6 = Sleef_expm1d2_u10advsimd(v4);
+            auto v7 = vmulq_f64(vf, v5);
+            auto res = vdivq_f64(v7, v6);
+            vst1q_f64(pibg, res);
+            pfreq += itlen;
+            pibg  += itlen;
+        }
+        for (ssize_t i = 0; i < remainder; i++)
+        {
+            double v1 = (*pfreq)*1.0e6;
+            double v2 = v1*h;
+            double v4 = v2*s3;
+            double v5 = v1*v1*v2;
+            double v6 = std::expm1(v4);
+            double v7 = f*v5;
+            *pibg = v7/v6;
+            pfreq++;
+            pibg++;
+        }
+    }
+
+    void calc_Ibg_neon(const AlignedVector<double>& freq,
+                       const AlignedVector<double>& Tbg,
+                             AlignedVector<double>& Ibg)
+    {
+        const auto len = freq.size();
+        if (Ibg.size() != len) Ibg.resize(len);
+
+        const double f = 2.0e26 / (cm * cm);
+
+        const double* __restrict pfreq = freq.data();
+        const double* __restrict ptbg  = Tbg.data();
+              double* __restrict pibg  = Ibg.data();
+        
+        const ssize_t vecsize = 2;
+        const ssize_t unrollfactor = 1;
+        const ssize_t itlen = vecsize*unrollfactor;
+        const auto maxit = len/itlen;
+        const auto remainder = len % itlen;
+        const auto vf = vdupq_n_f64(f);
+        const auto vmhz = vdupq_n_f64(1.0e6);
+        const auto vh = vdupq_n_f64(h);
+        const auto vk = vdupq_n_f64(k);
+        for (ssize_t i = 0; i < maxit; i++)
+        {
+            auto v0 = vld1q_f64(pfreq);
+            auto vt = vld1q_f64(ptbg);
+            auto v1 = vmulq_f64(v0, vmhz);
+            auto v2 = vmulq_f64(v1, vh);
+            auto v3 = vmulq_f64(vt, vk);
+            auto v4 = vdivq_f64(v2, v3);
+            auto v5 = vmulq_f64(v1, v2);
+                 v5 = vmulq_f64(v1, v5);
+            auto v6 = Sleef_expm1d2_u10advsimd(v4);
+            auto v7 = vmulq_f64(vf, v5);
+            auto res = vdivq_f64(v7, v6);
+            vst1q_f64(pibg, res);
+            pfreq += itlen;
+            ptbg  += itlen;
+            pibg  += itlen;
+        }
+        for (ssize_t i = 0; i < remainder; i++)
+        {
+            double v1 = (*pfreq)*1.0e6;
+            double v2 = v1*h;
+            double v3 = (*ptbg)*k;
+            double v4 = v2/v3;
+            double v5 = v1*v1*v2;
+            double v6 = std::expm1(v4);
+            double v7 = f*v5;
+            *pibg = v7/v6;
+            pfreq++;
+            ptbg++;
+            pibg++;
+        }
+    }
+
     [[maybe_unused]]
     void calc_Tb_neon(const AlignedVector<double>& frequency,
                       const AlignedVector<double>& tau,

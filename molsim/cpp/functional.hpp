@@ -40,6 +40,12 @@ namespace functional
                                  const double dV,
                                  const AlignedVector<double>& freq_profile,
                                        AlignedVector<double>& tau_profile);
+        void calc_Ibg_neon(const AlignedVector<double>& freq,
+                           const double Tbg,
+                                 AlignedVector<double>& Ibg);
+        void calc_Ibg_neon(const AlignedVector<double>& freq,
+                           const AlignedVector<double>& Tbg,
+                                 AlignedVector<double>& Ibg);
         void calc_Tb_neon(const AlignedVector<double>& frequency,
                           const AlignedVector<double>& tau,
                           const AlignedVector<double>& Tbg,
@@ -71,6 +77,12 @@ namespace functional
                                  const double dV,
                                  const AlignedVector<double>& freq_profile,
                                        AlignedVector<double>& tau_profile);
+        void calc_Ibg_avx2(const AlignedVector<double>& freq,
+                           const double Tbg,
+                                 AlignedVector<double>& Ibg);
+        void calc_Ibg_avx2(const AlignedVector<double>& freq,
+                           const AlignedVector<double>& Tbg,
+                                 AlignedVector<double>& Ibg);
         void calc_Tb_avx2(const AlignedVector<double>& frequency,
                           const AlignedVector<double>& tau,
                           const AlignedVector<double>& Tbg,
@@ -102,6 +114,12 @@ namespace functional
                                     const double dV,
                                     const AlignedVector<double>& freq_profile,
                                           AlignedVector<double>& tau_profile);
+        void calc_Ibg_purecpp(const AlignedVector<double>& freq,
+                              const double Tbg,
+                                    AlignedVector<double>& Ibg);
+        void calc_Ibg_purecpp(const AlignedVector<double>& freq,
+                              const AlignedVector<double>& Tbg,
+                                    AlignedVector<double>& Ibg);
         void calc_Tb_purecpp(const AlignedVector<double>& frequency,
                              const AlignedVector<double>& tau,
                              const AlignedVector<double>& Tbg,
@@ -167,6 +185,26 @@ namespace functional
             #endif
             default:
                 detail::make_gaussians_purecpp(std::forward<Args>(args)...);
+        }
+    }
+
+    template <typename... Args>
+    static inline void calc_Ibg(Args&&... args)
+    {
+        switch (dispatchto)
+        {
+            #if defined(MOLSIM_ARM)
+            case neon:
+                detail::calc_Ibg_neon(std::forward<Args>(args)...);
+                break;
+            #elif defined (MOLSIM_X86_64)
+            case avx512:
+            case avx2:
+                detail::calc_Ibg_avx2(std::forward<Args>(args)...);
+                break;
+            #endif
+            default:
+                detail::calc_Ibg_purecpp(std::forward<Args>(args)...);
         }
     }
 

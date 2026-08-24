@@ -159,6 +159,112 @@ namespace molsim::functional::detail
         }   
     }
 
+    void calc_Ibg_avx2(const AlignedVector<double>& freq,
+                       const double Tbg,
+                             AlignedVector<double>& Ibg)
+    {
+        const auto len = freq.size();
+        if (Ibg.size() != len) Ibg.resize(len);
+
+        const double f = 2.0e26 / (cm * cm);
+
+        const double* __restrict pfreq = freq.data();
+              double* __restrict pibg  = Ibg.data();
+
+        const ssize_t vecsize = 4;
+        const ssize_t unrollfactor = 1;
+        const ssize_t itlen = vecsize*unrollfactor;
+        const auto maxit = len/itlen;
+        const auto remainder = len % itlen;
+        const auto vf = _mm256_set1_pd(f);
+        const auto vmhz = _mm256_set1_pd(1.0e6);
+        const auto vh = _mm256_set1_pd(h);
+        const double s3 = 1.0/(k*Tbg);
+        const auto v3 = _mm256_set1_pd(s3);
+        for (ssize_t i = 0; i < maxit; i++)
+        {
+            auto v0 = _mm256_load_pd(pfreq);
+            auto v1 = _mm256_mul_pd(v0, vmhz);
+            auto v2 = _mm256_mul_pd(v1, vh);
+            auto v4 = _mm256_mul_pd(v2, v3);
+            auto v5 = _mm256_mul_pd(v1, v2);
+                 v5 = _mm256_mul_pd(v1, v5);
+            auto v6 = Sleef_expm1d4_u10avx2(v4);
+            auto v7 = _mm256_mul_pd(vf, v5);
+            auto res = _mm256_div_pd(v7, v6);
+            _mm256_store_pd(pibg, res);
+            pfreq += itlen;
+            pibg  += itlen;
+        }
+        for (ssize_t i = 0; i < remainder; i++)
+        {
+            double v1 = (*pfreq)*1.0e6;
+            double v2 = v1*h;
+            double v4 = v2*s3;
+            double v5 = v1*v1*v2;
+            double v6 = std::expm1(v4);
+            double v7 = f*v5;
+            *pibg = v7/v6;
+            pfreq++;
+            pibg++;
+        }
+    }
+
+    void calc_Ibg_avx2(const AlignedVector<double>& freq,
+                       const AlignedVector<double>& Tbg,
+                             AlignedVector<double>& Ibg)
+    {
+        const auto len = freq.size();
+        if (Ibg.size() != len) Ibg.resize(len);
+
+        const double f = 2.0e26 / (cm * cm);
+
+        const double* __restrict pfreq = freq.data();
+        const double* __restrict ptbg  = Tbg.data();
+              double* __restrict pibg  = Ibg.data();
+
+        const ssize_t vecsize = 4;
+        const ssize_t unrollfactor = 1;
+        const ssize_t itlen = vecsize*unrollfactor;
+        const auto maxit = len/itlen;
+        const auto remainder = len % itlen;
+        const auto vf = _mm256_set1_pd(f);
+        const auto vmhz = _mm256_set1_pd(1.0e6);
+        const auto vh = _mm256_set1_pd(h);
+        for (ssize_t i = 0; i < maxit; i++)
+        {
+            auto v0 = _mm256_load_pd(pfreq);
+            auto vt = _mm256_load_pd(ptbg);
+            auto v1 = _mm256_mul_pd(v0, vmhz);
+            auto v2 = _mm256_mul_pd(v1, vh);
+            auto v3 = _mm256_mul_pd(vt, vk);
+            auto v4 = _mm256_div_pd(v2, v3);
+            auto v5 = _mm256_mul_pd(v1, v2);
+                v5 = _mm256_mul_pd(v1, v5);
+            auto v6 = Sleef_expm1d4_u10avx2(v4);
+            auto v7 = _mm256_mul_pd(vf, v5);
+            auto res = _mm256_div_pd(v7, v6);
+            _mm256_store_pd(pibg, res);
+            pfreq += vecsize;
+            ptbg  += vecsize;
+            pibg  += vecsize;
+        }
+        for (ssize_t i = 0; i < remainder; i++)
+        {
+            double v1 = (*pfreq)*1.0e6;
+            double v2 = v1*h;
+            double v3 = (*ptbg)*k;
+            double v4 = v2/v3;
+            double v5 = v1*v1*v2;
+            double v6 = std::expm1(v4);
+            double v7 = f*v5;
+            *pibg = v7/v6;
+            pfreq++;
+            ptbg++;
+            pibg++;
+        }
+    }
+
     void calc_Tb_avx2(const AlignedVector<double>& frequency,
                       const AlignedVector<double>& tau,
                       const AlignedVector<double>& Tbg,
