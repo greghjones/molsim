@@ -32,13 +32,13 @@
 #include "functional.hpp"
 
 
-template <typename T1, typename T2>
-inline std::vector<char> _trim_arr_mask(const AlignedVector<T1>& arr, const AlignedVector<T2>& lls, const AlignedVector<T2>& uls, const AlignedVector<T2>& key_arr)
+template <typename T>
+inline std::vector<char> _trim_arr_mask(const AlignedVector<T>& lls, const AlignedVector<T>& uls, const AlignedVector<T>& key_arr)
 {
     assert(lls.size() == uls.size());
     assert(arr.size() == key_arr.size());
 
-    std::vector<char> mask(arr.size(), false);
+    std::vector<char> mask(key_arr.size(), false);
 
     for (long i = 0; i < lls.size(); i++)
     {
@@ -401,7 +401,7 @@ void Simulation::set_arrays()
     for (long i = 0; i < mol.catalog.frequency.size(); i++)
         tmp[i] = f*mol.catalog.frequency[i];
 
-    auto mask = _trim_arr_mask(tmp, ll, ul, tmp);
+    auto mask = _trim_arr_mask(ll, ul, tmp);
     spectrum.frequency = _apply_mask(mol.catalog.frequency, mask);
     spectrum.freq0 = spectrum.frequency;
     aij = _apply_mask(mol.catalog.aij, mask);
