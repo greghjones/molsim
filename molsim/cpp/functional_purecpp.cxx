@@ -33,6 +33,10 @@ namespace molsim::functional::detail
         const auto len = frequencies.size();
         tau.resize(len);
 
+        ALWAYS_ASSERT(aij.size() == len, "Sizes for aij and frequencies don't match!");
+        ALWAYS_ASSERT(gup.size() == len, "Sizes for gup and frequencies don't match!");
+        ALWAYS_ASSERT(eup.size() == len, "Sizes for eup and frequencies don't match!");
+
         for (auto& element : tau) element = 0.0;
 
         for (long i = 0; i < len; i++)
