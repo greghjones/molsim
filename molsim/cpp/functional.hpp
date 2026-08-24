@@ -315,8 +315,8 @@ static MOLSIM_ALWAYS_INLINE void scal(long n, double alpha, T* x, long incx)
 template <typename T, typename U, typename V>
 static MOLSIM_ALWAYS_INLINE void vmulv(const AlignedVector<T>& a, const AlignedVector<U>& b, AlignedVector<V>& c, bool increment)
 {
-    assert(a.size() == b.size());
-    assert(b.size() == c.size());
+    ALWAYS_ASSERT(a.size() == b.size(), "Vectors a and b aren't same size!");
+    ALWAYS_ASSERT(b.size() == c.size(), "Vectors b and c aren't same size!");
 
     if(increment)
     {

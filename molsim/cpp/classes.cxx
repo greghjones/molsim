@@ -35,8 +35,7 @@
 template <typename T>
 inline std::vector<char> _trim_arr_mask(const AlignedVector<T>& lls, const AlignedVector<T>& uls, const AlignedVector<T>& key_arr)
 {
-    assert(lls.size() == uls.size());
-    assert(arr.size() == key_arr.size());
+    ALWAYS_ASSERT(lls.size() == uls.size(), "Lower limit size doesn't match upper limit size!");
 
     std::vector<char> mask(key_arr.size(), false);
 
@@ -44,7 +43,7 @@ inline std::vector<char> _trim_arr_mask(const AlignedVector<T>& lls, const Align
     {
         const auto ll = lls[i];
         const auto ul = uls[i];
-        assert(ll < ul);
+        ALWAYS_ASSERT(ll < ul, "Lower limit is not less than upper limit!");
         for (long j = 0; j < key_arr.size(); j++)
         {
             if ((key_arr[j] > ll) && (key_arr[j] < ul))
@@ -58,7 +57,7 @@ inline std::vector<char> _trim_arr_mask(const AlignedVector<T>& lls, const Align
 template <typename T>
 AlignedVector<T> _apply_mask(const AlignedVector<T>& in, const std::vector<char>& mask)
 {
-    assert(mask.size() == in.size());
+    ALWAYS_ASSERT(static_cast<ssize_t>(mask.size()) == in.size(), "Array and mask sizes don't match!");
     AlignedVector<T> out {};
 
     ssize_t size = mask.size();
@@ -189,7 +188,7 @@ double PartitionFunction::qrot_counting(const double Tex)
     const auto& g = mol.level_degeneracies;
 
     const auto len = e.size();
-    assert(g.size() == len);
+    ALWAYS_ASSERT(g.size() == len, "Level degeneracies and level energies aren't the same size!");
 
     const double Tinv = -1.0/Tex;
 

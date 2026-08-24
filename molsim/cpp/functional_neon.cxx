@@ -103,9 +103,9 @@ namespace molsim::functional::detail
         y.resize(x.size());
         for (auto& element : y) element = 0.0;
 
-        assert(int0s.size() == npeaks);
-        assert(lls.size() == npeaks);
-        assert(uls.size() == npeaks);
+        ALWAYS_ASSERT(int0s.size() == npeaks, "Different size for centers and int0s!");
+        ALWAYS_ASSERT(lls.size() == npeaks,   "Different size for centers and lls!");
+        ALWAYS_ASSERT(uls.size() == npeaks,   "Different size for centers and uls!");
 
         const double scale1 = 2*(dV/ckm*fwhm_to_sigma)*(dV/ckm*fwhm_to_sigma);
 
@@ -195,8 +195,8 @@ namespace molsim::functional::detail
         const double texinv = 1.0/Tex;
         const double scale = h*1.0e6/k;
 
-        assert(Tbg.size() == len);
-        assert(tau.size() == len);
+        ALWAYS_ASSERT(Tbg.size() == len, "Different sizes for frequency and Tbg!");
+        ALWAYS_ASSERT(tau.size() == len, "Different sizes for frequency and tau!");
 
         Tb.resize(len);
 
@@ -379,7 +379,7 @@ namespace molsim::functional::detail
         const double texinv = 1.0/Tex;
         const double scale = h*1.0e6/k;
 
-        assert(tau.size() == len);
+        ALWAYS_ASSERT(tau.size() == len, "Different sizes for frequency and tau!");
 
         Tb.resize(len);
 
@@ -507,7 +507,7 @@ namespace molsim::functional::detail
 
         const auto len = freq_array.size();
 
-        assert(int_arr.size() == len);
+        ALWAYS_ASSERT(int_arr.size() == len, "Intensity array and frequency array aren't the same size!");
 
         AlignedVector<double> result(len);
         AlignedVector<double> beam_dilution(len);

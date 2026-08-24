@@ -29,6 +29,11 @@ do { \
     exit(1); \
 } while(0);
 
+#define ALWAYS_ASSERT(cond, ...) \
+do { \
+    if(!(cond)) [[unlikely]] ERROR(__VA_ARGS__); \
+} while (0);
+
 #ifndef MOLSIM_ALWAYS_INLINE
 #if defined (__GNUC__) || defined (__clang__)
 #define MOLSIM_ALWAYS_INLINE inline __attribute__((always_inline))
