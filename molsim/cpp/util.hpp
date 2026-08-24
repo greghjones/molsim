@@ -216,4 +216,16 @@ template <class T>
 constexpr bool operator==(const AlignedVector<T>& lhs,
                           const AlignedVector<T>& rhs) { return lhs._v == rhs._v; }
 
+namespace molsim::detail
+{
+    template <class T, typename = std::enable_if_t<std::is_rvalue_reference_v<AlignedVector<T>&&>>>
+    pybind11::array_t<T> to_pyarray(AlignedVector<T>&& v)
+    {
+        AlignedVector<T>* v2 = new AlignedVector<T>(std::move(v));
+        std::println("Generating capsule!");
+        auto capsule = pybind11::capsule(v2, nullptr, [](void* p) { std::println("Running capsule destructor!"); delete reinterpret_cast<AlignedVector<T>*>(p); });
+        return pybind11::array_t<T>(v2->size(), v2->data(), capsule);
+    }
+}
+
 #endif
