@@ -534,7 +534,7 @@ void Simulation::set_units()
 
     if (units == Jy_beam)
     {
-        if (!observation.has_value() || (!observation->observatory.has_value()))
+        if (!observation || (!observation->observatory))
             ERROR("Missing observation data for synth_beam!");
 
         // const double omega = (observation->observatory->synth_beam.first) * (observation->observatory->synth_beam.second);
@@ -601,7 +601,7 @@ void Simulation::make_lines()
     {
         if(use_obs)
         {
-            if (!observation.has_value())
+            if (!observation)
             {
                 ERROR("No observation data, but set use_obs!");
                 return;
@@ -667,7 +667,7 @@ void Simulation::make_lines()
 
 void Simulation::beam_correct()
 {
-    if (!(observation.has_value()) || !(observation->observatory.has_value()) || !(observation->observatory->sd))
+    if (!(observation) || !(observation->observatory) || !(observation->observatory->sd))
         return;
 
     std::tie(spectrum.Tb, beam_dilution)        = molsim::functional::apply_beam(spectrum.frequency, spectrum.Tb, source.size, observation->observatory->dish);
