@@ -7,9 +7,13 @@
 #include "classes.hpp"
 #include "molsim/cpp/functional.hpp"
 #include "molsim/cpp/util.hpp"
+#include "molsim/cpp/constants.hpp"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
+
+template <typename T>
+using nparray = py::array_t<T, py::array::c_style | py::array::forcecast>;
 
 PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
     py::class_<Simulation>(m, "Simulation")
@@ -68,14 +72,14 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
     auto functional = m.def_submodule("functional", "Optimized pure functions for spectral simulation.");
 
     functional.def("calc_tau",
-    [](const py::array_t<double, py::array::c_style | py::array::forcecast>& aij,
-       const py::array_t<int,    py::array::c_style | py::array::forcecast>& gup,
-       const py::array_t<double, py::array::c_style | py::array::forcecast>& eup,
-       const py::array_t<double, py::array::c_style | py::array::forcecast>& frequencies,
-       const double columndensity,
-       const double Tex,
-       const double dV,
-       const double q) -> py::array_t<double>
+    [](nparray<double> aij,
+       nparray<int> gup,
+       nparray<double> eup,
+       nparray<double> frequencies,
+       double columndensity,
+       double Tex,
+       double dV,
+       double q) -> py::array_t<double>
     {
         AlignedVector<double> tau(frequencies.size());
         molsim::functional::calc_tau(AlignedVector<double>(aij),
@@ -103,7 +107,7 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
     "   Excitation temperature, in Kelvin\n"
     // This should be refactored throughout molsim to be dimensionless
     "dV: float\n"
-    "   Broadening coefficient (km/s), such that the full-width half-maximum = `dV/c * center`\n",
+    "   FWHM in velocity space (km/s)\n",
     "q: float\n"
     "   Partition function at T=Tex\n"
     "\n"
@@ -115,12 +119,12 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
     );
 
     functional.def("make_gaussians",
-    [](const py::array_t<double,  py::array::c_style | py::array::forcecast>& x,
-       const py::array_t<double,  py::array::c_style | py::array::forcecast>& centers,
-       const py::array_t<double,  py::array::c_style | py::array::forcecast>& int0s,
-       const py::array_t<ssize_t, py::array::c_style | py::array::forcecast>& lls,
-       const py::array_t<ssize_t, py::array::c_style | py::array::forcecast>& uls,
-       const double dV) -> py::array_t<double>
+    [](nparray<double> x,
+       nparray<double> centers,
+       nparray<double> int0s,
+       nparray<ssize_t> lls,
+       nparray<ssize_t> uls,
+       double dV) -> py::array_t<double>
     {
         AlignedVector<double> y;
         molsim::functional::make_gaussians(AlignedVector<double>(centers),
@@ -147,9 +151,8 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
     "lls, uls: NDArray[np.int64]\n"
     "   Indices of `x` representing lower and upper limits for the nth gaussian,\n"
     "   beyond which the contribution is assumed to be zero.\n",
-    // This should be refactored throughout molsim to be dimensionless
     "dV: float\n"
-    "   Broadening coefficient (km/s), such that the full-width half-maximum = `dV/c * center`\n"
+    "   FWHM in velocity space (km/s)\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -158,19 +161,18 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
     "x"_a, "centers"_a, "int0s"_a, "lls"_a, "uls"_a, "dV"_a);
 
     functional.def("calc_Ibg",
-    [](const py::array_t<double, py::array::c_style | py::array::forcecast>& freq,
-       const std::variant<double, py::array_t<double, py::array::c_style | py::array::forcecast>>& Tbg_py) -> py::array_t<double>
+    [](nparray<double> freq,
+       std::variant<double, nparray<double>> Tbg) -> py::array_t<double>
     {
         AlignedVector<double> ibg;
-        if (std::holds_alternative<py::array_t<double, py::array::c_style | py::array::forcecast>>(Tbg_py))
+        if (std::holds_alternative<double>(Tbg))
             molsim::functional::calc_Ibg(AlignedVector<double>(freq),
-                                         AlignedVector<double>(std::get<py::array_t<double, py::array::c_style | py::array::forcecast>>(Tbg_py)),
+                                         std::get<double>(Tbg),
                                          ibg);
         else
             molsim::functional::calc_Ibg(AlignedVector<double>(freq),
-                                         std::get<double>(Tbg_py),
+                                         AlignedVector<double>(std::get<nparray<double>>(Tbg)),
                                          ibg);
-
         return molsim::detail::to_pyarray(std::move(ibg));
     },
     "calc_Ibg(frequencies, Tbg)\n"
@@ -180,7 +182,7 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
     "----------\n"
     "frequencies: NDArray[np.float64]\n"
     "   Frequencies (in MHz) at which to calculate background flux\n"
-    "Tbg: Optional[float | NDArray[np.float64]]\n"
+    "Tbg: float | NDArray[np.float64]\n"
     "   Either a single background temperature (K), or an array of frequency-dependent temperatures (K) for each element in `frequencies`\n"
     "\n"
     "Returns\n"
@@ -188,6 +190,77 @@ PYBIND11_MODULE(molsim_cpp, m, py::mod_gil_not_used()) {
     "NDArray[np.float64]\n"
     "   Background flux density (Jy/sr) at each frequency.\n",
     "frequencies"_a, "Tbg"_a);
+
+    functional.def("calc_Tb",
+    [](nparray<double> frequency,
+       nparray<double> tau,
+       std::variant<double, nparray<double>> Tbg,
+       double Tex) -> py::array_t<double>
+    {
+        AlignedVector<double> Tb;
+        if (std::holds_alternative<double>(Tbg))
+            molsim::functional::calc_Tb(AlignedVector<double>(frequency),
+                                        AlignedVector<double>(tau),
+                                        std::get<double>(Tbg),
+                                        Tex,
+                                        Tb);
+        else
+            molsim::functional::calc_Tb(AlignedVector<double>(frequency),
+                                        AlignedVector<double>(tau),
+                                        AlignedVector<double>(std::get<nparray<double>>(Tbg)),
+                                        Tex,
+                                        Tb);
+
+        return molsim::detail::to_pyarray(std::move(Tb));
+    },
+    "Docstr",
+    "frequency"_a, "tau"_a, "Tbg"_a, "Tex"_a);
+
+    functional.def("apply_beam",
+    [](nparray<double> frequencies,
+       nparray<double> intensities,
+       double source_size,
+       double dish_size) -> py::tuple
+    {
+        auto [result, beam_dilution] = molsim::functional::apply_beam(AlignedVector<double>(frequencies),
+                                                                      AlignedVector<double>(intensities),
+                                                                      source_size,
+                                                                      dish_size);
+        return py::make_tuple(molsim::detail::to_pyarray(std::move(result)), molsim::detail::to_pyarray(std::move(beam_dilution)));
+    },
+    "apply_beam(frequencies, intensities, source_size, dish_size)\n"
+    "",
+    "frequencies"_a, "intensities"_a, "source_size"_a, "dish_size"_a
+    );
+
+    // The underlying code will be refactored here to not do unnecessary work,
+    // but let's provide this functionality.
+    functional.def("beam_dilution_factor",
+    [](nparray<double> frequencies,
+       double source_size,
+       double dish_size) -> py::array_t<double>
+    {
+        AlignedVector<double> result;
+        AlignedVector<double> f(frequencies);
+        std::tie(result, std::ignore) = molsim::functional::apply_beam(f, f, source_size, dish_size);
+        return molsim::detail::to_pyarray(std::move(result));
+    },
+    "Docstr",
+    "frequencies"_a, "source_size"_a, "dish_size"_a);
+
+    // Not worth realigning input data, as axpby doesn't assume aligned data
+    functional.def("apply_vlsr",
+    [](nparray<double> unshifted_frequencies,
+       double vlsr) -> py::array_t<double>
+    {
+        const double scale = 1.0 - vlsr/ckm;
+        const auto size = unshifted_frequencies.size();
+        AlignedVector<double> result(size);
+        axpby(size, scale, unshifted_frequencies.data(), 1, 0.0, result.data(), 1);
+        return molsim::detail::to_pyarray(std::move(result));
+    },
+    "Docstr",
+    "unshifted_frequencies"_a, "vlsr"_a);
 
     functional.def("compute_log_likelihood",
     [](const py::array_t<double, py::array::c_style | py::array::forcecast>& simulation,
